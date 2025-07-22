@@ -100,6 +100,19 @@ return function(ui)
 		table.insert(connections, standButton.MouseButton1Click:Connect(onStand))
 	end
 
+	local function showResultMessage(result)
+		if ui.TextLabel then
+			if result == "advance" then
+				ui.TextLabel.Text = "You won!"
+			elseif result == "eliminate" then
+				ui.TextLabel.Text = "You lost!"
+			elseif result == "tie" then
+				ui.TextLabel.Text = "It's a tie!"
+			end
+		end
+		-- Do NOT call cleanup here; main controller will handle it after 2.5s
+	end
+
 	local resultConn
 	resultConn = client.UpdateUI.On(function(ui_type, element, value)
 		print("[Blackjack] UpdateUI", ui_type, element, value)
@@ -108,14 +121,8 @@ return function(ui)
 				local showAllAI = #value.aiHand > 1 or value.result ~= nil
 				updateCards(value.playerHand, value.aiHand, showAllAI)
 			end
-			if value and value.result == "advance" then
-				ui.TextLabel.Text = "You win!"
-				setButtonsEnabled(false)
-			elseif value and value.result == "eliminate" then
-				ui.TextLabel.Text = "You lose!"
-				setButtonsEnabled(false)
-			elseif value and value.result == "tie" then
-				ui.TextLabel.Text = "It's a tie!"
+			if value and value.result then
+				showResultMessage(value.result)
 				setButtonsEnabled(false)
 			end
 		end

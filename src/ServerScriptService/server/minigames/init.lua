@@ -21,24 +21,25 @@ export type MinigameModule = {
 }
 
 local games = {
-	React,
-	RatRace,
-	BombGuesser,
-	Blackjack,
-	HigherLower,
 	Maze,
+	HigherLower,
+	Blackjack,
+	BombGuesser,
+	RatRace,
+	React,
 }
 
 local game_names = {
-	"React",
-	"RatRace",
-	"BombGuesser",
-	"Blackjack",
-	"HigherLower", 
 	"Maze",
+	"HigherLower", 
+	"Blackjack",
+	"BombGuesser",
+	"RatRace",
+	"React",
 }
 
 local singleton: MinigameModule? = nil
+local last_game_index = nil
 
 function module.new(): MinigameModule
 	if singleton then
@@ -67,7 +68,13 @@ function module.switch_to_next(self: MinigameModule, match)
 	if self.game and self.game.stop then
 		self.game.stop()
 	end
-	self.current_game_index = self.current_game_index % #games + 1
+	-- Pick a random game index, not the same as last_game_index
+	local next_index
+	repeat
+		next_index = math.random(1, #games)
+	until next_index ~= self.current_game_index or #games == 1
+	self.current_game_index = next_index
+	last_game_index = next_index
 	self.game = games[self.current_game_index]
 	print("[Minigames] Switching to next minigame:", game_names[self.current_game_index])
 	self.start_game(self, match)

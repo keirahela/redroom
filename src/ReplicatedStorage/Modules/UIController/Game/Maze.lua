@@ -106,9 +106,7 @@ local function eliminatePlayer(ui, onElimination)
 
 	-- Hide UI after flashing
 	task.delay(0.6, function()
-		if ui then
-			cleanup()
-		end
+		cleanup(ui)
 	end)
 
 	-- Do not restart the maze or call onElimination
@@ -137,9 +135,7 @@ local function playerWin(ui, onWin, setupDangerZone)
 		client.MinigameInput.Fire("ended", nil)
 		-- Hide UI after win
 		task.delay(0.6, function()
-			if ui then
-				cleanup()
-			end
+			cleanup(ui)
 		end)
 		-- Do not restart the maze or call onWin again
 		return
@@ -158,7 +154,9 @@ local function playerWin(ui, onWin, setupDangerZone)
 	mouseInStart = false -- Reset start flag for new maze
 	gameActive = true
 	startTimer(ui, function()
-		eliminatePlayer(ui, onElimination)
+		eliminatePlayer(ui, function()
+		
+		end)
 	end)
 end
 
@@ -277,6 +275,27 @@ local function makePlayerVisible()
 	end
 end
 
+function cleanup(ui)
+	gameActive = false
+	mouseInStart = false
+	stopTimer()
+	for _, connection in pairs(connections) do
+		if connection then
+			connection:Disconnect()
+		end
+	end
+	connections = {}
+	if ui then
+		ui.Visible = false
+	end
+	Players.LocalPlayer.CameraMinZoomDistance = 0.5
+	Players.LocalPlayer.CameraMaxZoomDistance = 0.5
+	if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+		Players.LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+	end
+	print("Maze game stopped!")
+end
+
 return function(ui)
 	-- Reset game state
 	mouseInStart = false
@@ -319,26 +338,7 @@ return function(ui)
 		eliminatePlayer(ui, onElimination)
 	end)
 
-	local function cleanup()
-		gameActive = false
-		mouseInStart = false
-		stopTimer()
-		for _, connection in pairs(connections) do
-			if connection then
-				connection:Disconnect()
-			end
-		end
-		connections = {}
-		if ui then
-			ui.Visible = false
-		end
-		Players.LocalPlayer.CameraMinZoomDistance = 0.5
-		Players.LocalPlayer.CameraMaxZoomDistance = 0.5
-		if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-			Players.LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
-		end
-		print("Maze game stopped!")
+	return function()
+		cleanup(ui)
 	end
-
-	return cleanup
 end

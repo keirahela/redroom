@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fusion = require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Fusion"))
+local TweenService = game:GetService("TweenService")
 local client = require(game:GetService("ReplicatedStorage"):WaitForChild("network"):WaitForChild("client"))
 local ui = {}
 ui.__index = ui
@@ -132,12 +133,42 @@ function ui.new(): UIController
 		end
 	end)
 
-	client.TeleportCharacter.On(function(cframe)
+	client.TeleportCharacter.On(function(tpCFrame)
 		local player = Players.LocalPlayer
 		local character = player.Character
 		if character and character:FindFirstChild("HumanoidRootPart") then
-			character:PivotTo(cframe)
+			character.HumanoidRootPart.Anchored = true
+			character:PivotTo(tpCFrame)
 			character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+			character.HumanoidRootPart.Anchored = true
+		end
+	end)
+
+	local fadeGui -- store globally in the module
+	client.WakeUpTransition.On(function(phase, duration)
+		local fadeTemplate = ReplicatedStorage:FindFirstChild("UI") and ReplicatedStorage.UI:FindFirstChild("FadeUI")
+		if not fadeTemplate then return end
+		if phase == "fadeout" then
+			if fadeGui then fadeGui:Destroy() end
+			fadeGui = fadeTemplate:Clone()
+			fadeGui.ResetOnSpawn = false
+			fadeGui.Parent = Players.LocalPlayer.PlayerGui
+			local fadeFrame = fadeGui:FindFirstChild("FadeThis", true)
+			if not fadeFrame then warn("FadeThis frame not found in FadeUI"); return end
+			fadeFrame.BackgroundTransparency = 1
+			local tween = TweenService:Create(fadeFrame, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
+			tween:Play()
+			tween.Completed:Wait()
+		elseif phase == "fadein" then
+			if not fadeGui then return end
+			local fadeFrame = fadeGui:FindFirstChild("FadeThis", true)
+			if not fadeFrame then warn("FadeThis frame not found in FadeUI"); return end
+			fadeFrame.BackgroundTransparency = 0
+			local tween = TweenService:Create(fadeFrame, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+			tween:Play()
+			tween.Completed:Wait()
+			fadeGui:Destroy()
+			fadeGui = nil
 		end
 	end)
 		

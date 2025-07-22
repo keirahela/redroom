@@ -326,31 +326,31 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type CountdownData = ({
-	["duration"]: (number),
-	["title"]: (string),
-	["description"]: (string),
-})
-export type MinigameData = ({
-	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
-	["duration"]: (number),
-	["instructions"]: (string),
-	["parameters"]: ((unknown)),
-})
-export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
 export type NotificationData = ({
 	["type"]: ("Info" | "Warning" | "Success" | "Error"),
 	["title"]: (string),
 	["message"]: (string),
 	["duration"]: (number),
 })
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
+export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
+export type MinigameData = ({
+	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+	["duration"]: (number),
+	["instructions"]: (string),
+	["parameters"]: ((unknown)),
+})
 export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
 export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
+export type CountdownData = ({
+	["duration"]: (number),
+	["title"]: (string),
+	["description"]: (string),
+})
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
@@ -499,24 +499,40 @@ table.freeze(polling_queues_unreliable)
 local returns = {
 	SendEvents = SendEvents,
 	WakeUpTransition = {
-		Fire = function(Player: Player, Value: (number))
+		Fire = function(Player: Player, phase: (string), duration: (number))
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
-			assert(Value >= 1, "value is less than 1!")
-			assert(Value <= 5, "value is more than 5!")
+			local len_7 = #phase
+			assert(len_7 >= 1, "value is less than 1!")
+			assert(len_7 <= 40, "value is more than 40!")
+			assert(utf8.len(phase) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_7 - 1)
+			alloc(len_7)
+			buffer.writestring(outgoing_buff, outgoing_apos, phase, len_7)
+			assert(duration >= 1, "value is less than 1!")
+			assert(duration <= 5, "value is more than 5!")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, duration)
 			player_map[Player] = save()
 		end,
-		FireAll = function(Value: (number))
+		FireAll = function(phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
-			assert(Value >= 1, "value is less than 1!")
-			assert(Value <= 5, "value is more than 5!")
+			local len_8 = #phase
+			assert(len_8 >= 1, "value is less than 1!")
+			assert(len_8 <= 40, "value is more than 40!")
+			assert(utf8.len(phase) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_8 - 1)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, phase, len_8)
+			assert(duration >= 1, "value is less than 1!")
+			assert(duration <= 5, "value is more than 5!")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, duration)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -526,14 +542,22 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireExcept = function(Except: Player, Value: (number))
+		FireExcept = function(Except: Player, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
-			assert(Value >= 1, "value is less than 1!")
-			assert(Value <= 5, "value is more than 5!")
+			local len_9 = #phase
+			assert(len_9 >= 1, "value is less than 1!")
+			assert(len_9 <= 40, "value is more than 40!")
+			assert(utf8.len(phase) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_9 - 1)
+			alloc(len_9)
+			buffer.writestring(outgoing_buff, outgoing_apos, phase, len_9)
+			assert(duration >= 1, "value is less than 1!")
+			assert(duration <= 5, "value is more than 5!")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, duration)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -545,14 +569,22 @@ local returns = {
 				end
 			end
 		end,
-		FireList = function(List: { [unknown]: Player }, Value: (number))
+		FireList = function(List: { [unknown]: Player }, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
-			assert(Value >= 1, "value is less than 1!")
-			assert(Value <= 5, "value is more than 5!")
+			local len_10 = #phase
+			assert(len_10 >= 1, "value is less than 1!")
+			assert(len_10 <= 40, "value is more than 40!")
+			assert(utf8.len(phase) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_10 - 1)
+			alloc(len_10)
+			buffer.writestring(outgoing_buff, outgoing_apos, phase, len_10)
+			assert(duration >= 1, "value is less than 1!")
+			assert(duration <= 5, "value is more than 5!")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, duration)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -562,14 +594,22 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireSet = function(Set: { [Player]: any }, Value: (number))
+		FireSet = function(Set: { [Player]: any }, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
-			assert(Value >= 1, "value is less than 1!")
-			assert(Value <= 5, "value is more than 5!")
+			local len_11 = #phase
+			assert(len_11 >= 1, "value is less than 1!")
+			assert(len_11 <= 40, "value is more than 40!")
+			assert(utf8.len(phase) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_11 - 1)
+			alloc(len_11)
+			buffer.writestring(outgoing_buff, outgoing_apos, phase, len_11)
+			assert(duration >= 1, "value is less than 1!")
+			assert(duration <= 5, "value is more than 5!")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, duration)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -602,14 +642,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_7 = #element
-			assert(len_7 >= 1, "value is less than 1!")
-			assert(len_7 <= 120, "value is more than 120!")
+			local len_12 = #element
+			assert(len_12 >= 1, "value is less than 1!")
+			assert(len_12 <= 120, "value is more than 120!")
 			assert(utf8.len(element) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_7 - 1)
-			alloc(len_7)
-			buffer.writestring(outgoing_buff, outgoing_apos, element, len_7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_12 - 1)
+			alloc(len_12)
+			buffer.writestring(outgoing_buff, outgoing_apos, element, len_12)
 			if value ~= nil then
 				bool_5 = bit32.bor(bool_5, 0b0000000001000000)
 				table.insert(outgoing_inst, value)
@@ -638,14 +678,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_8 = #element
-			assert(len_8 >= 1, "value is less than 1!")
-			assert(len_8 <= 120, "value is more than 120!")
+			local len_13 = #element
+			assert(len_13 >= 1, "value is less than 1!")
+			assert(len_13 <= 120, "value is more than 120!")
 			assert(utf8.len(element) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_8 - 1)
-			alloc(len_8)
-			buffer.writestring(outgoing_buff, outgoing_apos, element, len_8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_13 - 1)
+			alloc(len_13)
+			buffer.writestring(outgoing_buff, outgoing_apos, element, len_13)
 			if value ~= nil then
 				bool_6 = bit32.bor(bool_6, 0b0000000001000000)
 				table.insert(outgoing_inst, value)
@@ -681,14 +721,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_9 = #element
-			assert(len_9 >= 1, "value is less than 1!")
-			assert(len_9 <= 120, "value is more than 120!")
+			local len_14 = #element
+			assert(len_14 >= 1, "value is less than 1!")
+			assert(len_14 <= 120, "value is more than 120!")
 			assert(utf8.len(element) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_9 - 1)
-			alloc(len_9)
-			buffer.writestring(outgoing_buff, outgoing_apos, element, len_9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_14 - 1)
+			alloc(len_14)
+			buffer.writestring(outgoing_buff, outgoing_apos, element, len_14)
 			if value ~= nil then
 				bool_7 = bit32.bor(bool_7, 0b0000000001000000)
 				table.insert(outgoing_inst, value)
@@ -726,14 +766,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_10 = #element
-			assert(len_10 >= 1, "value is less than 1!")
-			assert(len_10 <= 120, "value is more than 120!")
+			local len_15 = #element
+			assert(len_15 >= 1, "value is less than 1!")
+			assert(len_15 <= 120, "value is more than 120!")
 			assert(utf8.len(element) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_10 - 1)
-			alloc(len_10)
-			buffer.writestring(outgoing_buff, outgoing_apos, element, len_10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_15 - 1)
+			alloc(len_15)
+			buffer.writestring(outgoing_buff, outgoing_apos, element, len_15)
 			if value ~= nil then
 				bool_8 = bit32.bor(bool_8, 0b0000000001000000)
 				table.insert(outgoing_inst, value)
@@ -769,14 +809,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_11 = #element
-			assert(len_11 >= 1, "value is less than 1!")
-			assert(len_11 <= 120, "value is more than 120!")
+			local len_16 = #element
+			assert(len_16 >= 1, "value is less than 1!")
+			assert(len_16 <= 120, "value is more than 120!")
 			assert(utf8.len(element) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_11 - 1)
-			alloc(len_11)
-			buffer.writestring(outgoing_buff, outgoing_apos, element, len_11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_16 - 1)
+			alloc(len_16)
+			buffer.writestring(outgoing_buff, outgoing_apos, element, len_16)
 			if value ~= nil then
 				bool_9 = bit32.bor(bool_9, 0b0000000001000000)
 				table.insert(outgoing_inst, value)
@@ -807,14 +847,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			local bool_10 = 0
 			local bool_10_pos_1 = alloc(1)
-			local len_12 = #effect_name
-			assert(len_12 >= 1, "value is less than 1!")
-			assert(len_12 <= 120, "value is more than 120!")
+			local len_17 = #effect_name
+			assert(len_17 >= 1, "value is less than 1!")
+			assert(len_17 <= 120, "value is more than 120!")
 			assert(utf8.len(effect_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_12 - 1)
-			alloc(len_12)
-			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_17 - 1)
+			alloc(len_17)
+			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_17)
 			if target ~= nil then
 				bool_10 = bit32.bor(bool_10, 0b0000000000000001)
 				table.insert(outgoing_inst, target)
@@ -832,14 +872,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			local bool_11 = 0
 			local bool_11_pos_1 = alloc(1)
-			local len_13 = #effect_name
-			assert(len_13 >= 1, "value is less than 1!")
-			assert(len_13 <= 120, "value is more than 120!")
+			local len_18 = #effect_name
+			assert(len_18 >= 1, "value is less than 1!")
+			assert(len_18 <= 120, "value is more than 120!")
 			assert(utf8.len(effect_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_13 - 1)
-			alloc(len_13)
-			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_18 - 1)
+			alloc(len_18)
+			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_18)
 			if target ~= nil then
 				bool_11 = bit32.bor(bool_11, 0b0000000000000001)
 				table.insert(outgoing_inst, target)
@@ -864,14 +904,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			local bool_12 = 0
 			local bool_12_pos_1 = alloc(1)
-			local len_14 = #effect_name
-			assert(len_14 >= 1, "value is less than 1!")
-			assert(len_14 <= 120, "value is more than 120!")
+			local len_19 = #effect_name
+			assert(len_19 >= 1, "value is less than 1!")
+			assert(len_19 <= 120, "value is more than 120!")
 			assert(utf8.len(effect_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_14 - 1)
-			alloc(len_14)
-			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_19 - 1)
+			alloc(len_19)
+			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_19)
 			if target ~= nil then
 				bool_12 = bit32.bor(bool_12, 0b0000000000000001)
 				table.insert(outgoing_inst, target)
@@ -898,14 +938,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			local bool_13 = 0
 			local bool_13_pos_1 = alloc(1)
-			local len_15 = #effect_name
-			assert(len_15 >= 1, "value is less than 1!")
-			assert(len_15 <= 120, "value is more than 120!")
+			local len_20 = #effect_name
+			assert(len_20 >= 1, "value is less than 1!")
+			assert(len_20 <= 120, "value is more than 120!")
 			assert(utf8.len(effect_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_15 - 1)
-			alloc(len_15)
-			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_20 - 1)
+			alloc(len_20)
+			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_20)
 			if target ~= nil then
 				bool_13 = bit32.bor(bool_13, 0b0000000000000001)
 				table.insert(outgoing_inst, target)
@@ -930,14 +970,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			local bool_14 = 0
 			local bool_14_pos_1 = alloc(1)
-			local len_16 = #effect_name
-			assert(len_16 >= 1, "value is less than 1!")
-			assert(len_16 <= 120, "value is more than 120!")
+			local len_21 = #effect_name
+			assert(len_21 >= 1, "value is less than 1!")
+			assert(len_21 <= 120, "value is more than 120!")
 			assert(utf8.len(effect_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_16 - 1)
-			alloc(len_16)
-			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_21 - 1)
+			alloc(len_21)
+			buffer.writestring(outgoing_buff, outgoing_apos, effect_name, len_21)
 			if target ~= nil then
 				bool_14 = bit32.bor(bool_14, 0b0000000000000001)
 				table.insert(outgoing_inst, target)
@@ -1386,33 +1426,33 @@ local returns = {
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
-			local len_17 = #title
-			assert(len_17 >= 1, "value is less than 1!")
-			assert(len_17 <= 200, "value is more than 200!")
+			local len_22 = #title
+			assert(len_22 >= 1, "value is less than 1!")
+			assert(len_22 <= 200, "value is more than 200!")
 			assert(utf8.len(title) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_17 - 1)
-			alloc(len_17)
-			buffer.writestring(outgoing_buff, outgoing_apos, title, len_17)
-			local len_18 = #message
-			assert(len_18 >= 1, "value is less than 1!")
-			assert(len_18 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_22 - 1)
+			alloc(len_22)
+			buffer.writestring(outgoing_buff, outgoing_apos, title, len_22)
+			local len_23 = #message
+			assert(len_23 >= 1, "value is less than 1!")
+			assert(len_23 <= 800, "value is more than 800!")
 			assert(utf8.len(message) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_18 - 1)
-			alloc(len_18)
-			buffer.writestring(outgoing_buff, outgoing_apos, message, len_18)
-			local len_19 = #buttons
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_23 - 1)
+			alloc(len_23)
+			buffer.writestring(outgoing_buff, outgoing_apos, message, len_23)
+			local len_24 = #buttons
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_19)
-			for i_1 = 1, len_19 do
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_24)
+			for i_1 = 1, len_24 do
 				local val_1 = buttons[i_1]
-				local len_20 = #val_1
+				local len_25 = #val_1
 				assert(utf8.len(val_1) ~= nil, "value is not valid utf-8")
 				alloc(2)
-				buffer.writeu16(outgoing_buff, outgoing_apos, len_20)
-				alloc(len_20)
-				buffer.writestring(outgoing_buff, outgoing_apos, val_1, len_20)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_25)
+				alloc(len_25)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_1, len_25)
 			end
 			player_map[Player] = save()
 		end,
@@ -1420,33 +1460,33 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
-			local len_21 = #title
-			assert(len_21 >= 1, "value is less than 1!")
-			assert(len_21 <= 200, "value is more than 200!")
+			local len_26 = #title
+			assert(len_26 >= 1, "value is less than 1!")
+			assert(len_26 <= 200, "value is more than 200!")
 			assert(utf8.len(title) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_21 - 1)
-			alloc(len_21)
-			buffer.writestring(outgoing_buff, outgoing_apos, title, len_21)
-			local len_22 = #message
-			assert(len_22 >= 1, "value is less than 1!")
-			assert(len_22 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_26 - 1)
+			alloc(len_26)
+			buffer.writestring(outgoing_buff, outgoing_apos, title, len_26)
+			local len_27 = #message
+			assert(len_27 >= 1, "value is less than 1!")
+			assert(len_27 <= 800, "value is more than 800!")
 			assert(utf8.len(message) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_22 - 1)
-			alloc(len_22)
-			buffer.writestring(outgoing_buff, outgoing_apos, message, len_22)
-			local len_23 = #buttons
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_27 - 1)
+			alloc(len_27)
+			buffer.writestring(outgoing_buff, outgoing_apos, message, len_27)
+			local len_28 = #buttons
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_23)
-			for i_2 = 1, len_23 do
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_28)
+			for i_2 = 1, len_28 do
 				local val_2 = buttons[i_2]
-				local len_24 = #val_2
+				local len_29 = #val_2
 				assert(utf8.len(val_2) ~= nil, "value is not valid utf-8")
 				alloc(2)
-				buffer.writeu16(outgoing_buff, outgoing_apos, len_24)
-				alloc(len_24)
-				buffer.writestring(outgoing_buff, outgoing_apos, val_2, len_24)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_29)
+				alloc(len_29)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_2, len_29)
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
@@ -1461,33 +1501,33 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
-			local len_25 = #title
-			assert(len_25 >= 1, "value is less than 1!")
-			assert(len_25 <= 200, "value is more than 200!")
+			local len_30 = #title
+			assert(len_30 >= 1, "value is less than 1!")
+			assert(len_30 <= 200, "value is more than 200!")
 			assert(utf8.len(title) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_25 - 1)
-			alloc(len_25)
-			buffer.writestring(outgoing_buff, outgoing_apos, title, len_25)
-			local len_26 = #message
-			assert(len_26 >= 1, "value is less than 1!")
-			assert(len_26 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_30 - 1)
+			alloc(len_30)
+			buffer.writestring(outgoing_buff, outgoing_apos, title, len_30)
+			local len_31 = #message
+			assert(len_31 >= 1, "value is less than 1!")
+			assert(len_31 <= 800, "value is more than 800!")
 			assert(utf8.len(message) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_26 - 1)
-			alloc(len_26)
-			buffer.writestring(outgoing_buff, outgoing_apos, message, len_26)
-			local len_27 = #buttons
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_31 - 1)
+			alloc(len_31)
+			buffer.writestring(outgoing_buff, outgoing_apos, message, len_31)
+			local len_32 = #buttons
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_27)
-			for i_3 = 1, len_27 do
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_32)
+			for i_3 = 1, len_32 do
 				local val_3 = buttons[i_3]
-				local len_28 = #val_3
+				local len_33 = #val_3
 				assert(utf8.len(val_3) ~= nil, "value is not valid utf-8")
 				alloc(2)
-				buffer.writeu16(outgoing_buff, outgoing_apos, len_28)
-				alloc(len_28)
-				buffer.writestring(outgoing_buff, outgoing_apos, val_3, len_28)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_33)
+				alloc(len_33)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_3, len_33)
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
@@ -1504,33 +1544,33 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
-			local len_29 = #title
-			assert(len_29 >= 1, "value is less than 1!")
-			assert(len_29 <= 200, "value is more than 200!")
+			local len_34 = #title
+			assert(len_34 >= 1, "value is less than 1!")
+			assert(len_34 <= 200, "value is more than 200!")
 			assert(utf8.len(title) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_29 - 1)
-			alloc(len_29)
-			buffer.writestring(outgoing_buff, outgoing_apos, title, len_29)
-			local len_30 = #message
-			assert(len_30 >= 1, "value is less than 1!")
-			assert(len_30 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_34 - 1)
+			alloc(len_34)
+			buffer.writestring(outgoing_buff, outgoing_apos, title, len_34)
+			local len_35 = #message
+			assert(len_35 >= 1, "value is less than 1!")
+			assert(len_35 <= 800, "value is more than 800!")
 			assert(utf8.len(message) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_30 - 1)
-			alloc(len_30)
-			buffer.writestring(outgoing_buff, outgoing_apos, message, len_30)
-			local len_31 = #buttons
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_35 - 1)
+			alloc(len_35)
+			buffer.writestring(outgoing_buff, outgoing_apos, message, len_35)
+			local len_36 = #buttons
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_31)
-			for i_4 = 1, len_31 do
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_36)
+			for i_4 = 1, len_36 do
 				local val_4 = buttons[i_4]
-				local len_32 = #val_4
+				local len_37 = #val_4
 				assert(utf8.len(val_4) ~= nil, "value is not valid utf-8")
 				alloc(2)
-				buffer.writeu16(outgoing_buff, outgoing_apos, len_32)
-				alloc(len_32)
-				buffer.writestring(outgoing_buff, outgoing_apos, val_4, len_32)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_37)
+				alloc(len_37)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_4, len_37)
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
@@ -1545,33 +1585,33 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
-			local len_33 = #title
-			assert(len_33 >= 1, "value is less than 1!")
-			assert(len_33 <= 200, "value is more than 200!")
+			local len_38 = #title
+			assert(len_38 >= 1, "value is less than 1!")
+			assert(len_38 <= 200, "value is more than 200!")
 			assert(utf8.len(title) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_33 - 1)
-			alloc(len_33)
-			buffer.writestring(outgoing_buff, outgoing_apos, title, len_33)
-			local len_34 = #message
-			assert(len_34 >= 1, "value is less than 1!")
-			assert(len_34 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_38 - 1)
+			alloc(len_38)
+			buffer.writestring(outgoing_buff, outgoing_apos, title, len_38)
+			local len_39 = #message
+			assert(len_39 >= 1, "value is less than 1!")
+			assert(len_39 <= 800, "value is more than 800!")
 			assert(utf8.len(message) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_34 - 1)
-			alloc(len_34)
-			buffer.writestring(outgoing_buff, outgoing_apos, message, len_34)
-			local len_35 = #buttons
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_39 - 1)
+			alloc(len_39)
+			buffer.writestring(outgoing_buff, outgoing_apos, message, len_39)
+			local len_40 = #buttons
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_35)
-			for i_5 = 1, len_35 do
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_40)
+			for i_5 = 1, len_40 do
 				local val_5 = buttons[i_5]
-				local len_36 = #val_5
+				local len_41 = #val_5
 				assert(utf8.len(val_5) ~= nil, "value is not valid utf-8")
 				alloc(2)
-				buffer.writeu16(outgoing_buff, outgoing_apos, len_36)
-				alloc(len_36)
-				buffer.writestring(outgoing_buff, outgoing_apos, val_5, len_36)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_41)
+				alloc(len_41)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_5, len_41)
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
@@ -1606,22 +1646,22 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_37 = #Value["title"]
-			assert(len_37 >= 1, "value is less than 1!")
-			assert(len_37 <= 200, "value is more than 200!")
+			local len_42 = #Value["title"]
+			assert(len_42 >= 1, "value is less than 1!")
+			assert(len_42 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_37 - 1)
-			alloc(len_37)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_37)
-			local len_38 = #Value["message"]
-			assert(len_38 >= 1, "value is less than 1!")
-			assert(len_38 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_42 - 1)
+			alloc(len_42)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_42)
+			local len_43 = #Value["message"]
+			assert(len_43 >= 1, "value is less than 1!")
+			assert(len_43 <= 800, "value is more than 800!")
 			assert(utf8.len(Value["message"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_38 - 1)
-			alloc(len_38)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_38)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_43 - 1)
+			alloc(len_43)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_43)
 			assert(Value["duration"] >= 1, "value is less than 1!")
 			assert(Value["duration"] <= 30, "value is more than 30!")
 			alloc(1)
@@ -1651,22 +1691,22 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_39 = #Value["title"]
-			assert(len_39 >= 1, "value is less than 1!")
-			assert(len_39 <= 200, "value is more than 200!")
+			local len_44 = #Value["title"]
+			assert(len_44 >= 1, "value is less than 1!")
+			assert(len_44 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_39 - 1)
-			alloc(len_39)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_39)
-			local len_40 = #Value["message"]
-			assert(len_40 >= 1, "value is less than 1!")
-			assert(len_40 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_44 - 1)
+			alloc(len_44)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_44)
+			local len_45 = #Value["message"]
+			assert(len_45 >= 1, "value is less than 1!")
+			assert(len_45 <= 800, "value is more than 800!")
 			assert(utf8.len(Value["message"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_40 - 1)
-			alloc(len_40)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_40)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_45 - 1)
+			alloc(len_45)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_45)
 			assert(Value["duration"] >= 1, "value is less than 1!")
 			assert(Value["duration"] <= 30, "value is more than 30!")
 			alloc(1)
@@ -1703,22 +1743,22 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_41 = #Value["title"]
-			assert(len_41 >= 1, "value is less than 1!")
-			assert(len_41 <= 200, "value is more than 200!")
+			local len_46 = #Value["title"]
+			assert(len_46 >= 1, "value is less than 1!")
+			assert(len_46 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_41 - 1)
-			alloc(len_41)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_41)
-			local len_42 = #Value["message"]
-			assert(len_42 >= 1, "value is less than 1!")
-			assert(len_42 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_46 - 1)
+			alloc(len_46)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_46)
+			local len_47 = #Value["message"]
+			assert(len_47 >= 1, "value is less than 1!")
+			assert(len_47 <= 800, "value is more than 800!")
 			assert(utf8.len(Value["message"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_42 - 1)
-			alloc(len_42)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_42)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_47 - 1)
+			alloc(len_47)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_47)
 			assert(Value["duration"] >= 1, "value is less than 1!")
 			assert(Value["duration"] <= 30, "value is more than 30!")
 			alloc(1)
@@ -1757,22 +1797,22 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_43 = #Value["title"]
-			assert(len_43 >= 1, "value is less than 1!")
-			assert(len_43 <= 200, "value is more than 200!")
+			local len_48 = #Value["title"]
+			assert(len_48 >= 1, "value is less than 1!")
+			assert(len_48 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_43 - 1)
-			alloc(len_43)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_43)
-			local len_44 = #Value["message"]
-			assert(len_44 >= 1, "value is less than 1!")
-			assert(len_44 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_48 - 1)
+			alloc(len_48)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_48)
+			local len_49 = #Value["message"]
+			assert(len_49 >= 1, "value is less than 1!")
+			assert(len_49 <= 800, "value is more than 800!")
 			assert(utf8.len(Value["message"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_44 - 1)
-			alloc(len_44)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_44)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_49 - 1)
+			alloc(len_49)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_49)
 			assert(Value["duration"] >= 1, "value is less than 1!")
 			assert(Value["duration"] <= 30, "value is more than 30!")
 			alloc(1)
@@ -1809,22 +1849,22 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_45 = #Value["title"]
-			assert(len_45 >= 1, "value is less than 1!")
-			assert(len_45 <= 200, "value is more than 200!")
+			local len_50 = #Value["title"]
+			assert(len_50 >= 1, "value is less than 1!")
+			assert(len_50 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_45 - 1)
-			alloc(len_45)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_45)
-			local len_46 = #Value["message"]
-			assert(len_46 >= 1, "value is less than 1!")
-			assert(len_46 <= 800, "value is more than 800!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_50 - 1)
+			alloc(len_50)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_50)
+			local len_51 = #Value["message"]
+			assert(len_51 >= 1, "value is less than 1!")
+			assert(len_51 <= 800, "value is more than 800!")
 			assert(utf8.len(Value["message"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_46 - 1)
-			alloc(len_46)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_46)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_51 - 1)
+			alloc(len_51)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["message"], len_51)
 			assert(Value["duration"] >= 1, "value is less than 1!")
 			assert(Value["duration"] <= 30, "value is more than 30!")
 			alloc(1)
@@ -1853,14 +1893,14 @@ local returns = {
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
-			local len_47 = #transition_type
-			assert(len_47 >= 1, "value is less than 1!")
-			assert(len_47 <= 80, "value is more than 80!")
+			local len_52 = #transition_type
+			assert(len_52 >= 1, "value is less than 1!")
+			assert(len_52 <= 80, "value is more than 80!")
 			assert(utf8.len(transition_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_47 - 1)
-			alloc(len_47)
-			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_47)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_52 - 1)
+			alloc(len_52)
+			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_52)
 			assert(duration >= 1, "value is less than 1!")
 			assert(duration <= 10, "value is more than 10!")
 			alloc(1)
@@ -1871,14 +1911,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
-			local len_48 = #transition_type
-			assert(len_48 >= 1, "value is less than 1!")
-			assert(len_48 <= 80, "value is more than 80!")
+			local len_53 = #transition_type
+			assert(len_53 >= 1, "value is less than 1!")
+			assert(len_53 <= 80, "value is more than 80!")
 			assert(utf8.len(transition_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_48 - 1)
-			alloc(len_48)
-			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_48)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_53 - 1)
+			alloc(len_53)
+			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_53)
 			assert(duration >= 1, "value is less than 1!")
 			assert(duration <= 10, "value is more than 10!")
 			alloc(1)
@@ -1896,14 +1936,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
-			local len_49 = #transition_type
-			assert(len_49 >= 1, "value is less than 1!")
-			assert(len_49 <= 80, "value is more than 80!")
+			local len_54 = #transition_type
+			assert(len_54 >= 1, "value is less than 1!")
+			assert(len_54 <= 80, "value is more than 80!")
 			assert(utf8.len(transition_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_49 - 1)
-			alloc(len_49)
-			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_49)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_54 - 1)
+			alloc(len_54)
+			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_54)
 			assert(duration >= 1, "value is less than 1!")
 			assert(duration <= 10, "value is more than 10!")
 			alloc(1)
@@ -1923,14 +1963,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
-			local len_50 = #transition_type
-			assert(len_50 >= 1, "value is less than 1!")
-			assert(len_50 <= 80, "value is more than 80!")
+			local len_55 = #transition_type
+			assert(len_55 >= 1, "value is less than 1!")
+			assert(len_55 <= 80, "value is more than 80!")
 			assert(utf8.len(transition_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_50 - 1)
-			alloc(len_50)
-			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_50)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_55 - 1)
+			alloc(len_55)
+			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_55)
 			assert(duration >= 1, "value is less than 1!")
 			assert(duration <= 10, "value is more than 10!")
 			alloc(1)
@@ -1948,14 +1988,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
-			local len_51 = #transition_type
-			assert(len_51 >= 1, "value is less than 1!")
-			assert(len_51 <= 80, "value is more than 80!")
+			local len_56 = #transition_type
+			assert(len_56 >= 1, "value is less than 1!")
+			assert(len_56 <= 80, "value is more than 80!")
 			assert(utf8.len(transition_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_51 - 1)
-			alloc(len_51)
-			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_51)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_56 - 1)
+			alloc(len_56)
+			buffer.writestring(outgoing_buff, outgoing_apos, transition_type, len_56)
 			assert(duration >= 1, "value is less than 1!")
 			assert(duration <= 10, "value is more than 10!")
 			alloc(1)
@@ -1983,22 +2023,22 @@ local returns = {
 			assert(Value["duration"] <= 60, "value is more than 60!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_52 = #Value["title"]
-			assert(len_52 >= 1, "value is less than 1!")
-			assert(len_52 <= 200, "value is more than 200!")
+			local len_57 = #Value["title"]
+			assert(len_57 >= 1, "value is less than 1!")
+			assert(len_57 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_52 - 1)
-			alloc(len_52)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_52)
-			local len_53 = #Value["description"]
-			assert(len_53 >= 0, "value is less than 0!")
-			assert(len_53 <= 400, "value is more than 400!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_57 - 1)
+			alloc(len_57)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_57)
+			local len_58 = #Value["description"]
+			assert(len_58 >= 0, "value is less than 0!")
+			assert(len_58 <= 400, "value is more than 400!")
 			assert(utf8.len(Value["description"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_53)
-			alloc(len_53)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_53)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_58)
+			alloc(len_58)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_58)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -2013,22 +2053,22 @@ local returns = {
 			assert(Value["duration"] <= 60, "value is more than 60!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_54 = #Value["title"]
-			assert(len_54 >= 1, "value is less than 1!")
-			assert(len_54 <= 200, "value is more than 200!")
+			local len_59 = #Value["title"]
+			assert(len_59 >= 1, "value is less than 1!")
+			assert(len_59 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_54 - 1)
-			alloc(len_54)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_54)
-			local len_55 = #Value["description"]
-			assert(len_55 >= 0, "value is less than 0!")
-			assert(len_55 <= 400, "value is more than 400!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_59 - 1)
+			alloc(len_59)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_59)
+			local len_60 = #Value["description"]
+			assert(len_60 >= 0, "value is less than 0!")
+			assert(len_60 <= 400, "value is more than 400!")
 			assert(utf8.len(Value["description"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_55)
-			alloc(len_55)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_55)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_60)
+			alloc(len_60)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_60)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -2050,22 +2090,22 @@ local returns = {
 			assert(Value["duration"] <= 60, "value is more than 60!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_56 = #Value["title"]
-			assert(len_56 >= 1, "value is less than 1!")
-			assert(len_56 <= 200, "value is more than 200!")
+			local len_61 = #Value["title"]
+			assert(len_61 >= 1, "value is less than 1!")
+			assert(len_61 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_56 - 1)
-			alloc(len_56)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_56)
-			local len_57 = #Value["description"]
-			assert(len_57 >= 0, "value is less than 0!")
-			assert(len_57 <= 400, "value is more than 400!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_61 - 1)
+			alloc(len_61)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_61)
+			local len_62 = #Value["description"]
+			assert(len_62 >= 0, "value is less than 0!")
+			assert(len_62 <= 400, "value is more than 400!")
 			assert(utf8.len(Value["description"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_57)
-			alloc(len_57)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_57)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_62)
+			alloc(len_62)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_62)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -2089,22 +2129,22 @@ local returns = {
 			assert(Value["duration"] <= 60, "value is more than 60!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_58 = #Value["title"]
-			assert(len_58 >= 1, "value is less than 1!")
-			assert(len_58 <= 200, "value is more than 200!")
+			local len_63 = #Value["title"]
+			assert(len_63 >= 1, "value is less than 1!")
+			assert(len_63 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_58 - 1)
-			alloc(len_58)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_58)
-			local len_59 = #Value["description"]
-			assert(len_59 >= 0, "value is less than 0!")
-			assert(len_59 <= 400, "value is more than 400!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_63 - 1)
+			alloc(len_63)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_63)
+			local len_64 = #Value["description"]
+			assert(len_64 >= 0, "value is less than 0!")
+			assert(len_64 <= 400, "value is more than 400!")
 			assert(utf8.len(Value["description"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_59)
-			alloc(len_59)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_59)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_64)
+			alloc(len_64)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_64)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -2126,22 +2166,22 @@ local returns = {
 			assert(Value["duration"] <= 60, "value is more than 60!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_60 = #Value["title"]
-			assert(len_60 >= 1, "value is less than 1!")
-			assert(len_60 <= 200, "value is more than 200!")
+			local len_65 = #Value["title"]
+			assert(len_65 >= 1, "value is less than 1!")
+			assert(len_65 <= 200, "value is more than 200!")
 			assert(utf8.len(Value["title"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_60 - 1)
-			alloc(len_60)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_60)
-			local len_61 = #Value["description"]
-			assert(len_61 >= 0, "value is less than 0!")
-			assert(len_61 <= 400, "value is more than 400!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_65 - 1)
+			alloc(len_65)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["title"], len_65)
+			local len_66 = #Value["description"]
+			assert(len_66 >= 0, "value is less than 0!")
+			assert(len_66 <= 400, "value is more than 400!")
 			assert(utf8.len(Value["description"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_61)
-			alloc(len_61)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_61)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_66)
+			alloc(len_66)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["description"], len_66)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -2257,14 +2297,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_62 = #reason
-			assert(len_62 >= 1, "value is less than 1!")
-			assert(len_62 <= 200, "value is more than 200!")
+			local len_67 = #reason
+			assert(len_67 >= 1, "value is less than 1!")
+			assert(len_67 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_62 - 1)
-			alloc(len_62)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_62)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_67 - 1)
+			alloc(len_67)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_67)
 			player_map[Player] = save()
 		end,
 		FireAll = function(player: (Player), reason: (string))
@@ -2273,14 +2313,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_63 = #reason
-			assert(len_63 >= 1, "value is less than 1!")
-			assert(len_63 <= 200, "value is more than 200!")
+			local len_68 = #reason
+			assert(len_68 >= 1, "value is less than 1!")
+			assert(len_68 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_63 - 1)
-			alloc(len_63)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_63)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_68 - 1)
+			alloc(len_68)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_68)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -2296,14 +2336,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_64 = #reason
-			assert(len_64 >= 1, "value is less than 1!")
-			assert(len_64 <= 200, "value is more than 200!")
+			local len_69 = #reason
+			assert(len_69 >= 1, "value is less than 1!")
+			assert(len_69 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_64 - 1)
-			alloc(len_64)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_64)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_69 - 1)
+			alloc(len_69)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_69)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -2321,14 +2361,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_65 = #reason
-			assert(len_65 >= 1, "value is less than 1!")
-			assert(len_65 <= 200, "value is more than 200!")
+			local len_70 = #reason
+			assert(len_70 >= 1, "value is less than 1!")
+			assert(len_70 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_65 - 1)
-			alloc(len_65)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_65)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_70 - 1)
+			alloc(len_70)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_70)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -2344,14 +2384,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_66 = #reason
-			assert(len_66 >= 1, "value is less than 1!")
-			assert(len_66 <= 200, "value is more than 200!")
+			local len_71 = #reason
+			assert(len_71 >= 1, "value is less than 1!")
+			assert(len_71 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_66 - 1)
-			alloc(len_66)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_66)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_71 - 1)
+			alloc(len_71)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_71)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -2499,28 +2539,28 @@ local returns = {
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
-			local len_67 = #animationId
-			assert(len_67 >= 10, "value is less than 10!")
-			assert(len_67 <= 80, "value is more than 80!")
+			local len_72 = #animationId
+			assert(len_72 >= 10, "value is less than 10!")
+			assert(len_72 <= 80, "value is more than 80!")
 			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_67 - 10)
-			alloc(len_67)
-			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_67)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_72 - 10)
+			alloc(len_72)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_72)
 			player_map[Player] = save()
 		end,
 		FireAll = function(animationId: (string))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
-			local len_68 = #animationId
-			assert(len_68 >= 10, "value is less than 10!")
-			assert(len_68 <= 80, "value is more than 80!")
+			local len_73 = #animationId
+			assert(len_73 >= 10, "value is less than 10!")
+			assert(len_73 <= 80, "value is more than 80!")
 			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_68 - 10)
-			alloc(len_68)
-			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_68)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_73 - 10)
+			alloc(len_73)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_73)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -2534,14 +2574,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
-			local len_69 = #animationId
-			assert(len_69 >= 10, "value is less than 10!")
-			assert(len_69 <= 80, "value is more than 80!")
+			local len_74 = #animationId
+			assert(len_74 >= 10, "value is less than 10!")
+			assert(len_74 <= 80, "value is more than 80!")
 			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_69 - 10)
-			alloc(len_69)
-			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_69)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_74 - 10)
+			alloc(len_74)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_74)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -2557,14 +2597,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
-			local len_70 = #animationId
-			assert(len_70 >= 10, "value is less than 10!")
-			assert(len_70 <= 80, "value is more than 80!")
+			local len_75 = #animationId
+			assert(len_75 >= 10, "value is less than 10!")
+			assert(len_75 <= 80, "value is more than 80!")
 			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_70 - 10)
-			alloc(len_70)
-			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_70)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_75 - 10)
+			alloc(len_75)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_75)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -2578,14 +2618,14 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
-			local len_71 = #animationId
-			assert(len_71 >= 10, "value is less than 10!")
-			assert(len_71 <= 80, "value is more than 80!")
+			local len_76 = #animationId
+			assert(len_76 >= 10, "value is less than 10!")
+			assert(len_76 <= 80, "value is more than 80!")
 			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_71 - 10)
-			alloc(len_71)
-			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_71)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_76 - 10)
+			alloc(len_76)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_76)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -2677,14 +2717,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_72 = #Value["instructions"]
-			assert(len_72 >= 1, "value is less than 1!")
-			assert(len_72 <= 2000, "value is more than 2000!")
+			local len_77 = #Value["instructions"]
+			assert(len_77 >= 1, "value is less than 1!")
+			assert(len_77 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_72 - 1)
-			alloc(len_72)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_72)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_77 - 1)
+			alloc(len_77)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_77)
 			if Value["parameters"] ~= nil then
 				bool_35 = bit32.bor(bool_35, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2722,14 +2762,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_73 = #Value["instructions"]
-			assert(len_73 >= 1, "value is less than 1!")
-			assert(len_73 <= 2000, "value is more than 2000!")
+			local len_78 = #Value["instructions"]
+			assert(len_78 >= 1, "value is less than 1!")
+			assert(len_78 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_73 - 1)
-			alloc(len_73)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_73)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_78 - 1)
+			alloc(len_78)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_78)
 			if Value["parameters"] ~= nil then
 				bool_36 = bit32.bor(bool_36, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2774,14 +2814,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_74 = #Value["instructions"]
-			assert(len_74 >= 1, "value is less than 1!")
-			assert(len_74 <= 2000, "value is more than 2000!")
+			local len_79 = #Value["instructions"]
+			assert(len_79 >= 1, "value is less than 1!")
+			assert(len_79 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_74 - 1)
-			alloc(len_74)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_74)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_79 - 1)
+			alloc(len_79)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_79)
 			if Value["parameters"] ~= nil then
 				bool_37 = bit32.bor(bool_37, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2828,14 +2868,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_75 = #Value["instructions"]
-			assert(len_75 >= 1, "value is less than 1!")
-			assert(len_75 <= 2000, "value is more than 2000!")
+			local len_80 = #Value["instructions"]
+			assert(len_80 >= 1, "value is less than 1!")
+			assert(len_80 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_75 - 1)
-			alloc(len_75)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_75)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_80 - 1)
+			alloc(len_80)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_80)
 			if Value["parameters"] ~= nil then
 				bool_38 = bit32.bor(bool_38, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2880,14 +2920,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_76 = #Value["instructions"]
-			assert(len_76 >= 1, "value is less than 1!")
-			assert(len_76 <= 2000, "value is more than 2000!")
+			local len_81 = #Value["instructions"]
+			assert(len_81 >= 1, "value is less than 1!")
+			assert(len_81 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_76 - 1)
-			alloc(len_76)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_76)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_81 - 1)
+			alloc(len_81)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_81)
 			if Value["parameters"] ~= nil then
 				bool_39 = bit32.bor(bool_39, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -3228,22 +3268,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_77 = #reward["name"]
-			assert(len_77 >= 1, "value is less than 1!")
-			assert(len_77 <= 200, "value is more than 200!")
+			local len_82 = #reward["name"]
+			assert(len_82 >= 1, "value is less than 1!")
+			assert(len_82 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_77 - 1)
-			alloc(len_77)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_77)
-			local len_78 = #reward["rarity"]
-			assert(len_78 >= 1, "value is less than 1!")
-			assert(len_78 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_82 - 1)
+			alloc(len_82)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_82)
+			local len_83 = #reward["rarity"]
+			assert(len_83 >= 1, "value is less than 1!")
+			assert(len_83 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_78 - 1)
-			alloc(len_78)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_78)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_83 - 1)
+			alloc(len_83)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_83)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			player_map[Player] = save()
@@ -3258,22 +3298,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_79 = #reward["name"]
-			assert(len_79 >= 1, "value is less than 1!")
-			assert(len_79 <= 200, "value is more than 200!")
+			local len_84 = #reward["name"]
+			assert(len_84 >= 1, "value is less than 1!")
+			assert(len_84 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_79 - 1)
-			alloc(len_79)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_79)
-			local len_80 = #reward["rarity"]
-			assert(len_80 >= 1, "value is less than 1!")
-			assert(len_80 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_84 - 1)
+			alloc(len_84)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_84)
+			local len_85 = #reward["rarity"]
+			assert(len_85 >= 1, "value is less than 1!")
+			assert(len_85 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_80 - 1)
-			alloc(len_80)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_80)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_85 - 1)
+			alloc(len_85)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_85)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3295,22 +3335,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_81 = #reward["name"]
-			assert(len_81 >= 1, "value is less than 1!")
-			assert(len_81 <= 200, "value is more than 200!")
+			local len_86 = #reward["name"]
+			assert(len_86 >= 1, "value is less than 1!")
+			assert(len_86 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_81 - 1)
-			alloc(len_81)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_81)
-			local len_82 = #reward["rarity"]
-			assert(len_82 >= 1, "value is less than 1!")
-			assert(len_82 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_86 - 1)
+			alloc(len_86)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_86)
+			local len_87 = #reward["rarity"]
+			assert(len_87 >= 1, "value is less than 1!")
+			assert(len_87 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_82 - 1)
-			alloc(len_82)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_82)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_87 - 1)
+			alloc(len_87)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_87)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3334,22 +3374,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_83 = #reward["name"]
-			assert(len_83 >= 1, "value is less than 1!")
-			assert(len_83 <= 200, "value is more than 200!")
+			local len_88 = #reward["name"]
+			assert(len_88 >= 1, "value is less than 1!")
+			assert(len_88 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_83 - 1)
-			alloc(len_83)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_83)
-			local len_84 = #reward["rarity"]
-			assert(len_84 >= 1, "value is less than 1!")
-			assert(len_84 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_88 - 1)
+			alloc(len_88)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_88)
+			local len_89 = #reward["rarity"]
+			assert(len_89 >= 1, "value is less than 1!")
+			assert(len_89 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_84 - 1)
-			alloc(len_84)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_84)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_89 - 1)
+			alloc(len_89)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_89)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3371,22 +3411,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_85 = #reward["name"]
-			assert(len_85 >= 1, "value is less than 1!")
-			assert(len_85 <= 200, "value is more than 200!")
+			local len_90 = #reward["name"]
+			assert(len_90 >= 1, "value is less than 1!")
+			assert(len_90 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_85 - 1)
-			alloc(len_85)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_85)
-			local len_86 = #reward["rarity"]
-			assert(len_86 >= 1, "value is less than 1!")
-			assert(len_86 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_90 - 1)
+			alloc(len_90)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_90)
+			local len_91 = #reward["rarity"]
+			assert(len_91 >= 1, "value is less than 1!")
+			assert(len_91 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_86 - 1)
-			alloc(len_86)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_86)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_91 - 1)
+			alloc(len_91)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_91)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3408,14 +3448,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_87 = #reason
-			assert(len_87 >= 1, "value is less than 1!")
-			assert(len_87 <= 200, "value is more than 200!")
+			local len_92 = #reason
+			assert(len_92 >= 1, "value is less than 1!")
+			assert(len_92 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_87 - 1)
-			alloc(len_87)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_87)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_92 - 1)
+			alloc(len_92)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_92)
 			player_map[Player] = save()
 		end,
 		FireAll = function(player: (Player), amount: (number), reason: (string))
@@ -3426,14 +3466,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_88 = #reason
-			assert(len_88 >= 1, "value is less than 1!")
-			assert(len_88 <= 200, "value is more than 200!")
+			local len_93 = #reason
+			assert(len_93 >= 1, "value is less than 1!")
+			assert(len_93 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_88 - 1)
-			alloc(len_88)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_88)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_93 - 1)
+			alloc(len_93)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_93)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -3451,14 +3491,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_89 = #reason
-			assert(len_89 >= 1, "value is less than 1!")
-			assert(len_89 <= 200, "value is more than 200!")
+			local len_94 = #reason
+			assert(len_94 >= 1, "value is less than 1!")
+			assert(len_94 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_89 - 1)
-			alloc(len_89)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_89)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_94 - 1)
+			alloc(len_94)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_94)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -3478,14 +3518,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_90 = #reason
-			assert(len_90 >= 1, "value is less than 1!")
-			assert(len_90 <= 200, "value is more than 200!")
+			local len_95 = #reason
+			assert(len_95 >= 1, "value is less than 1!")
+			assert(len_95 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_90 - 1)
-			alloc(len_90)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_90)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_95 - 1)
+			alloc(len_95)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_95)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -3503,14 +3543,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_91 = #reason
-			assert(len_91 >= 1, "value is less than 1!")
-			assert(len_91 <= 200, "value is more than 200!")
+			local len_96 = #reason
+			assert(len_96 >= 1, "value is less than 1!")
+			assert(len_96 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_91 - 1)
-			alloc(len_91)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_91)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_96 - 1)
+			alloc(len_96)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_96)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

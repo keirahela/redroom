@@ -12,6 +12,7 @@ export type PlayerData = {
 	is_alive: boolean,
 	is_spectating: boolean,
 	joined_at: number,
+	tv_id: number?,
 }
 
 export type MatchObject = {
@@ -38,6 +39,8 @@ export type MatchObject = {
 	get_player_data: (self: MatchObject, player: Player) -> PlayerData?,
 }
 
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local CHARACTER_POSITIONS = workspace.Chairs
 local Players = game:GetService("Players")
 
@@ -81,6 +84,10 @@ function match_object.start(self: MatchObject): ()
 		title = "Match Starting"
 	})
 	
+	-- Fade to black before pivoting players
+	server.WakeUpTransition.FireAll("fadeout", 2)
+	task.wait(2)
+
 	local iteration = 1
 	for player, data in next, self.players do
 		task.spawn(function()
@@ -103,23 +110,61 @@ function match_object.start(self: MatchObject): ()
 			local tpCFrame = CFrame.new(pos.X, 8.7, pos.Z) * orientation
 
 			server.ShowUI.Fire(player, "Game", iteration)
-			
+			character.HumanoidRootPart.Anchored = true
 			character.Humanoid.WalkSpeed = 0
 			character.Humanoid.JumpHeight = 0
 			character.Humanoid.AutoRotate = false
-
 			character:PivotTo(tpCFrame)
+			character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
 			server.TeleportCharacter.Fire(player, tpCFrame)
 			task.wait()
 			character.HumanoidRootPart.Anchored = true
+			-- Store the chair/tv id for this player
+			self.players[player].tv_id = iteration
 			iteration += 1
 		end)
 	end
-	
+
 	-- Fire PlaySeatAnimation event ONCE for all clients, now only passing animationId
 	server.PlaySeatAnimation.FireAll("71528301881949")
-	
-	task.delay(3, function()
+
+	-- Fade in (waking up)
+	task.wait(1)
+	server.WakeUpTransition.FireAll("fadein", 3)
+
+	-- Wait for fade in and 15s before starting minigame
+	task.delay(3 + 15, function()
+		-- Lower all TVs (tagged 'TV') using Heartbeat loop for both BaseParts and Models
+		for _, tv in ipairs(CollectionService:GetTagged("TV")) do
+			local startCFrame
+			if tv:IsA("BasePart") then
+				tv.Anchored = true
+				print("Lowering TV BasePart", tv, "Anchored:", tv.Anchored)
+				startCFrame = tv.CFrame
+			elseif tv:IsA("Model") then
+				startCFrame = tv:GetPivot()
+			else
+				continue
+			end
+			local startPos = startCFrame.Position
+			local targetY = tv:IsA("BasePart") and 9.69 or 20.36
+			local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
+			local startTime = tick()
+			local duration = 1
+			local conn
+			conn = RunService.Heartbeat:Connect(function()
+				local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+				if tv:IsA("BasePart") then
+					tv.CFrame = startCFrame:Lerp(endCFrame, alpha)
+				elseif tv:IsA("Model") then
+					tv:PivotTo(startCFrame:Lerp(endCFrame, alpha))
+				end
+				if alpha >= 1 then
+					conn:Disconnect()
+				end
+			end)
+		end
+
 		self:set_state("IN_PROGRESS")
 		self.minigames_handler.start_game(self.minigames_handler, self)
 	end)
@@ -153,6 +198,42 @@ function match_object.remove_player(self: MatchObject, player: Player): boolean
 		return false
 	end
 	
+	-- Lerp TV up for this player (in case of disconnect)
+	local player_data = self.players[player]
+	local tv_id = player_data and player_data.tv_id
+	if tv_id then
+		for _, tv in ipairs(CollectionService:GetTagged("TV")) do
+			local tvId = tv:GetAttribute("id")
+			if tostring(tvId) == tostring(tv_id) then
+				local startCFrame
+				if tv:IsA("BasePart") then
+					tv.Anchored = true
+					startCFrame = tv.CFrame
+				elseif tv:IsA("Model") then
+					startCFrame = tv:GetPivot()
+				else
+					continue
+				end
+				local startPos = startCFrame.Position
+				local targetY = tv:IsA("BasePart") and 20.095 or 30.765
+				local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
+				local startTime = tick()
+				local duration = 1
+				local conn
+				conn = RunService.Heartbeat:Connect(function()
+					local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+					if tv:IsA("BasePart") then
+						tv.CFrame = startCFrame:Lerp(endCFrame, alpha)
+					elseif tv:IsA("Model") then
+						tv:PivotTo(startCFrame:Lerp(endCFrame, alpha))
+					end
+					if alpha >= 1 then
+						conn:Disconnect()
+					end
+				end)
+			end
+		end
+	end
 	self.players[player] = nil
 	
 	print(`{player.Name} was removed`)
@@ -221,6 +302,41 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 		})
 		
 		self.award_coins(self, player, 10)
+		-- Lerp TV up for this player using tv_id
+		local tv_id = player_data.tv_id
+		if tv_id then
+			for _, tv in ipairs(CollectionService:GetTagged("TV")) do
+				local tvId = tv:GetAttribute("id")
+				if tostring(tvId) == tostring(tv_id) then
+					local startCFrame
+					if tv:IsA("BasePart") then
+						tv.Anchored = true
+						startCFrame = tv.CFrame
+					elseif tv:IsA("Model") then
+						startCFrame = tv:GetPivot()
+					else
+						continue
+					end
+					local startPos = startCFrame.Position
+					local targetY = tv:IsA("BasePart") and 20.095 or 30.765
+					local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
+					local startTime = tick()
+					local duration = 1
+					local conn
+					conn = RunService.Heartbeat:Connect(function()
+						local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+						if tv:IsA("BasePart") then
+							tv.CFrame = startCFrame:Lerp(endCFrame, alpha)
+						elseif tv:IsA("Model") then
+							tv:PivotTo(startCFrame:Lerp(endCFrame, alpha))
+						end
+						if alpha >= 1 then
+							conn:Disconnect()
+						end
+					end)
+				end
+			end
+		end
 		self.remove_player(self, player)
 		
 		server.CoinsAwarded.Fire(player, player, 10, "died")
@@ -237,7 +353,6 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 				self.award_coins(self, winner.player, 50)
 				
 				server.CoinsAwarded.Fire(player, player, 50, "won")
-				
 				
 			end
 		elseif #alive_players == 0 and self.state == "IN_PROGRESS" then

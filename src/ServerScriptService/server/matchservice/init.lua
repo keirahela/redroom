@@ -74,11 +74,10 @@ minigame_signal:Connect(function()
 	end
 	local alive_players = match:get_alive_players()
 	-- TESTING: Always go to next minigame, do not end when only one player left
-	-- if #alive_players <= 1 then
-	-- 	match:set_state("ENDING")
-	-- 	print("Match ending: only one player left alive.")
-	-- else
-	if match.minigames_handler and match.minigames_handler.switch_to_next then
+	if #alive_players <= 1 then
+	 	match:set_state("ENDING")
+	 	print("Match ending: only one player left alive.")
+	elseif match.minigames_handler and match.minigames_handler.switch_to_next then
 		match.minigames_handler:switch_to_next(match)
 	else
 		warn("No minigames handler or switch_to_next function!")

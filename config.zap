@@ -244,7 +244,7 @@ event WakeUpTransition = {
     from: Server,
     type: Reliable,
     call: ManyAsync,
-    data: u8(1..5)  -- duration in seconds
+    data: (phase: string.utf8(1..10), duration: u8(1..5))
 }
 
 -- Server -> Client: Play seat animation when player is pivoted
