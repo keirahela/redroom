@@ -107,7 +107,7 @@ local function eliminatePlayer(ui, onElimination)
 	-- Hide UI after flashing
 	task.delay(0.6, function()
 		if ui then
-			ui.Visible = false
+			cleanup()
 		end
 	end)
 
@@ -138,7 +138,7 @@ local function playerWin(ui, onWin, setupDangerZone)
 		-- Hide UI after win
 		task.delay(0.6, function()
 			if ui then
-				ui.Visible = false
+				cleanup()
 			end
 		end)
 		-- Do not restart the maze or call onWin again
@@ -285,10 +285,9 @@ return function(ui)
 	stopTimer()
 	
 	makePlayerInvisible()
-	Players.LocalPlayer.CameraMinZoomDistance = 2
 	Players.LocalPlayer.CameraMaxZoomDistance = 2
-	
-	Players.LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, -4)
+	Players.LocalPlayer.CameraMinZoomDistance = 2
+	Players.LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 1, -4)
 	
 	local mouse = game.Players.LocalPlayer:GetMouse()
 
@@ -320,24 +319,26 @@ return function(ui)
 		eliminatePlayer(ui, onElimination)
 	end)
 
-	return function()
+	local function cleanup()
 		gameActive = false
 		mouseInStart = false
 		stopTimer()
-
-		-- Clean up connections
 		for _, connection in pairs(connections) do
 			if connection then
 				connection:Disconnect()
 			end
 		end
 		connections = {}
-
-		-- Hide GUI
 		if ui then
 			ui.Visible = false
 		end
-
+		Players.LocalPlayer.CameraMinZoomDistance = 0.5
+		Players.LocalPlayer.CameraMaxZoomDistance = 0.5
+		if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+			Players.LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+		end
 		print("Maze game stopped!")
 	end
+
+	return cleanup
 end

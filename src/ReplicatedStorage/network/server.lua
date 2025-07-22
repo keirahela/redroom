@@ -143,6 +143,13 @@ if not RunService:IsRunning() then
 			FireList = noop,
 			FireSet = noop
 		}),
+		TeleportCharacter = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 		SpectateRequest = table.freeze({
 			SetCallback = noop
 		}),
@@ -212,6 +219,13 @@ if not RunService:IsRunning() then
 			FireSet = noop
 		}),
 		PlayerDataUpdated = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
+		PlaySeatAnimation = table.freeze({
 			Fire = noop,
 			FireAll = noop,
 			FireExcept = noop,
@@ -312,9 +326,6 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
-export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
 export type CountdownData = ({
 	["duration"]: (number),
 	["title"]: (string),
@@ -326,22 +337,25 @@ export type MinigameData = ({
 	["instructions"]: (string),
 	["parameters"]: ((unknown)),
 })
+export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
 export type NotificationData = ({
 	["type"]: ("Info" | "Warning" | "Success" | "Error"),
 	["title"]: (string),
 	["message"]: (string),
 	["duration"]: (number),
 })
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
+export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
+export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
 	["value"]: (number),
 })
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
-export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
 
 local function SendEvents()
 	for player, outgoing in player_map do
@@ -933,6 +947,138 @@ local returns = {
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_14_pos_1, bool_14)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
+	TeleportCharacter = {
+		Fire = function(Player: Player, cframe: (CFrame))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			local axis_1, angle_1 = cframe:ToAxisAngle()
+			axis_1 = axis_1 * angle_1
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_1.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_1.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_1.Z)
+			player_map[Player] = save()
+		end,
+		FireAll = function(cframe: (CFrame))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			local axis_2, angle_2 = cframe:ToAxisAngle()
+			axis_2 = axis_2 * angle_2
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_2.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_2.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_2.Z)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, cframe: (CFrame))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			local axis_3, angle_3 = cframe:ToAxisAngle()
+			axis_3 = axis_3 * angle_3
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_3.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_3.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_3.Z)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, cframe: (CFrame))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			local axis_4, angle_4 = cframe:ToAxisAngle()
+			axis_4 = axis_4 * angle_4
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_4.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_4.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_4.Z)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, cframe: (CFrame))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			local axis_5, angle_5 = cframe:ToAxisAngle()
+			axis_5 = axis_5 * angle_5
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, cframe.Position.Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_5.X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_5.Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, axis_5.Z)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -2348,6 +2494,108 @@ local returns = {
 			end
 		end,
 	},
+	PlaySeatAnimation = {
+		Fire = function(Player: Player, animationId: (string))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			local len_67 = #animationId
+			assert(len_67 >= 10, "value is less than 10!")
+			assert(len_67 <= 80, "value is more than 80!")
+			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_67 - 10)
+			alloc(len_67)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_67)
+			player_map[Player] = save()
+		end,
+		FireAll = function(animationId: (string))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			local len_68 = #animationId
+			assert(len_68 >= 10, "value is less than 10!")
+			assert(len_68 <= 80, "value is more than 80!")
+			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_68 - 10)
+			alloc(len_68)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_68)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, animationId: (string))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			local len_69 = #animationId
+			assert(len_69 >= 10, "value is less than 10!")
+			assert(len_69 <= 80, "value is more than 80!")
+			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_69 - 10)
+			alloc(len_69)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_69)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, animationId: (string))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			local len_70 = #animationId
+			assert(len_70 >= 10, "value is less than 10!")
+			assert(len_70 <= 80, "value is more than 80!")
+			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_70 - 10)
+			alloc(len_70)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_70)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, animationId: (string))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			local len_71 = #animationId
+			assert(len_71 >= 10, "value is less than 10!")
+			assert(len_71 <= 80, "value is more than 80!")
+			assert(utf8.len(animationId) ~= nil, "value is not valid utf-8")
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_71 - 10)
+			alloc(len_71)
+			buffer.writestring(outgoing_buff, outgoing_apos, animationId, len_71)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
 	MinigameTimer = {
 		Fire = function(Player: Player, Value: (number))
 			load_empty()
@@ -2429,14 +2677,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_67 = #Value["instructions"]
-			assert(len_67 >= 1, "value is less than 1!")
-			assert(len_67 <= 2000, "value is more than 2000!")
+			local len_72 = #Value["instructions"]
+			assert(len_72 >= 1, "value is less than 1!")
+			assert(len_72 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_67 - 1)
-			alloc(len_67)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_67)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_72 - 1)
+			alloc(len_72)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_72)
 			if Value["parameters"] ~= nil then
 				bool_35 = bit32.bor(bool_35, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2474,14 +2722,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_68 = #Value["instructions"]
-			assert(len_68 >= 1, "value is less than 1!")
-			assert(len_68 <= 2000, "value is more than 2000!")
+			local len_73 = #Value["instructions"]
+			assert(len_73 >= 1, "value is less than 1!")
+			assert(len_73 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_68 - 1)
-			alloc(len_68)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_68)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_73 - 1)
+			alloc(len_73)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_73)
 			if Value["parameters"] ~= nil then
 				bool_36 = bit32.bor(bool_36, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2526,14 +2774,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_69 = #Value["instructions"]
-			assert(len_69 >= 1, "value is less than 1!")
-			assert(len_69 <= 2000, "value is more than 2000!")
+			local len_74 = #Value["instructions"]
+			assert(len_74 >= 1, "value is less than 1!")
+			assert(len_74 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_69 - 1)
-			alloc(len_69)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_69)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_74 - 1)
+			alloc(len_74)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_74)
 			if Value["parameters"] ~= nil then
 				bool_37 = bit32.bor(bool_37, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2580,14 +2828,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_70 = #Value["instructions"]
-			assert(len_70 >= 1, "value is less than 1!")
-			assert(len_70 <= 2000, "value is more than 2000!")
+			local len_75 = #Value["instructions"]
+			assert(len_75 >= 1, "value is less than 1!")
+			assert(len_75 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_70 - 1)
-			alloc(len_70)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_70)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_75 - 1)
+			alloc(len_75)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_75)
 			if Value["parameters"] ~= nil then
 				bool_38 = bit32.bor(bool_38, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2632,14 +2880,14 @@ local returns = {
 			assert(Value["duration"] <= 120, "value is more than 120!")
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["duration"])
-			local len_71 = #Value["instructions"]
-			assert(len_71 >= 1, "value is less than 1!")
-			assert(len_71 <= 2000, "value is more than 2000!")
+			local len_76 = #Value["instructions"]
+			assert(len_76 >= 1, "value is less than 1!")
+			assert(len_76 <= 2000, "value is more than 2000!")
 			assert(utf8.len(Value["instructions"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_71 - 1)
-			alloc(len_71)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_71)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_76 - 1)
+			alloc(len_76)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_76)
 			if Value["parameters"] ~= nil then
 				bool_39 = bit32.bor(bool_39, 0b0000000001000000)
 				table.insert(outgoing_inst, Value["parameters"])
@@ -2980,22 +3228,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_72 = #reward["name"]
-			assert(len_72 >= 1, "value is less than 1!")
-			assert(len_72 <= 200, "value is more than 200!")
+			local len_77 = #reward["name"]
+			assert(len_77 >= 1, "value is less than 1!")
+			assert(len_77 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_72 - 1)
-			alloc(len_72)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_72)
-			local len_73 = #reward["rarity"]
-			assert(len_73 >= 1, "value is less than 1!")
-			assert(len_73 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_77 - 1)
+			alloc(len_77)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_77)
+			local len_78 = #reward["rarity"]
+			assert(len_78 >= 1, "value is less than 1!")
+			assert(len_78 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_73 - 1)
-			alloc(len_73)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_73)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_78 - 1)
+			alloc(len_78)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_78)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			player_map[Player] = save()
@@ -3010,22 +3258,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_74 = #reward["name"]
-			assert(len_74 >= 1, "value is less than 1!")
-			assert(len_74 <= 200, "value is more than 200!")
+			local len_79 = #reward["name"]
+			assert(len_79 >= 1, "value is less than 1!")
+			assert(len_79 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_74 - 1)
-			alloc(len_74)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_74)
-			local len_75 = #reward["rarity"]
-			assert(len_75 >= 1, "value is less than 1!")
-			assert(len_75 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_79 - 1)
+			alloc(len_79)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_79)
+			local len_80 = #reward["rarity"]
+			assert(len_80 >= 1, "value is less than 1!")
+			assert(len_80 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_75 - 1)
-			alloc(len_75)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_75)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_80 - 1)
+			alloc(len_80)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_80)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3047,22 +3295,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_76 = #reward["name"]
-			assert(len_76 >= 1, "value is less than 1!")
-			assert(len_76 <= 200, "value is more than 200!")
+			local len_81 = #reward["name"]
+			assert(len_81 >= 1, "value is less than 1!")
+			assert(len_81 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_76 - 1)
-			alloc(len_76)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_76)
-			local len_77 = #reward["rarity"]
-			assert(len_77 >= 1, "value is less than 1!")
-			assert(len_77 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_81 - 1)
+			alloc(len_81)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_81)
+			local len_82 = #reward["rarity"]
+			assert(len_82 >= 1, "value is less than 1!")
+			assert(len_82 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_77 - 1)
-			alloc(len_77)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_77)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_82 - 1)
+			alloc(len_82)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_82)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3086,22 +3334,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_78 = #reward["name"]
-			assert(len_78 >= 1, "value is less than 1!")
-			assert(len_78 <= 200, "value is more than 200!")
+			local len_83 = #reward["name"]
+			assert(len_83 >= 1, "value is less than 1!")
+			assert(len_83 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_78 - 1)
-			alloc(len_78)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_78)
-			local len_79 = #reward["rarity"]
-			assert(len_79 >= 1, "value is less than 1!")
-			assert(len_79 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_83 - 1)
+			alloc(len_83)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_83)
+			local len_84 = #reward["rarity"]
+			assert(len_84 >= 1, "value is less than 1!")
+			assert(len_84 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_79 - 1)
-			alloc(len_79)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_79)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_84 - 1)
+			alloc(len_84)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_84)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3123,22 +3371,22 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
-			local len_80 = #reward["name"]
-			assert(len_80 >= 1, "value is less than 1!")
-			assert(len_80 <= 200, "value is more than 200!")
+			local len_85 = #reward["name"]
+			assert(len_85 >= 1, "value is less than 1!")
+			assert(len_85 <= 200, "value is more than 200!")
 			assert(utf8.len(reward["name"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_80 - 1)
-			alloc(len_80)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_80)
-			local len_81 = #reward["rarity"]
-			assert(len_81 >= 1, "value is less than 1!")
-			assert(len_81 <= 80, "value is more than 80!")
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_85 - 1)
+			alloc(len_85)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["name"], len_85)
+			local len_86 = #reward["rarity"]
+			assert(len_86 >= 1, "value is less than 1!")
+			assert(len_86 <= 80, "value is more than 80!")
 			assert(utf8.len(reward["rarity"]) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_81 - 1)
-			alloc(len_81)
-			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_81)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_86 - 1)
+			alloc(len_86)
+			buffer.writestring(outgoing_buff, outgoing_apos, reward["rarity"], len_86)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, reward["value"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
@@ -3160,14 +3408,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_82 = #reason
-			assert(len_82 >= 1, "value is less than 1!")
-			assert(len_82 <= 200, "value is more than 200!")
+			local len_87 = #reason
+			assert(len_87 >= 1, "value is less than 1!")
+			assert(len_87 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_82 - 1)
-			alloc(len_82)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_82)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_87 - 1)
+			alloc(len_87)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_87)
 			player_map[Player] = save()
 		end,
 		FireAll = function(player: (Player), amount: (number), reason: (string))
@@ -3178,14 +3426,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_83 = #reason
-			assert(len_83 >= 1, "value is less than 1!")
-			assert(len_83 <= 200, "value is more than 200!")
+			local len_88 = #reason
+			assert(len_88 >= 1, "value is less than 1!")
+			assert(len_88 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_83 - 1)
-			alloc(len_83)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_83)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_88 - 1)
+			alloc(len_88)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_88)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -3203,14 +3451,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_84 = #reason
-			assert(len_84 >= 1, "value is less than 1!")
-			assert(len_84 <= 200, "value is more than 200!")
+			local len_89 = #reason
+			assert(len_89 >= 1, "value is less than 1!")
+			assert(len_89 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_84 - 1)
-			alloc(len_84)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_84)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_89 - 1)
+			alloc(len_89)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_89)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -3230,14 +3478,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_85 = #reason
-			assert(len_85 >= 1, "value is less than 1!")
-			assert(len_85 <= 200, "value is more than 200!")
+			local len_90 = #reason
+			assert(len_90 >= 1, "value is less than 1!")
+			assert(len_90 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_85 - 1)
-			alloc(len_85)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_85)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_90 - 1)
+			alloc(len_90)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_90)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -3255,14 +3503,14 @@ local returns = {
 			table.insert(outgoing_inst, player)
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, amount)
-			local len_86 = #reason
-			assert(len_86 >= 1, "value is less than 1!")
-			assert(len_86 <= 200, "value is more than 200!")
+			local len_91 = #reason
+			assert(len_91 >= 1, "value is less than 1!")
+			assert(len_91 <= 200, "value is more than 200!")
 			assert(utf8.len(reason) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_86 - 1)
-			alloc(len_86)
-			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_86)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_91 - 1)
+			alloc(len_91)
+			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_91)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

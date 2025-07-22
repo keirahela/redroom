@@ -75,7 +75,7 @@ function higherlower.start(match)
 			local guess = (input_type == "guess_higher") and "Higher" or "Lower"
 			local correct = false
 			if guess == "Higher" then
-				correct = hidden > state.number
+				correct = hidden >= state.number  -- Changed > to >= so when hidden = current, "Higher" is correct
 			elseif guess == "Lower" then
 				correct = hidden < state.number
 			end

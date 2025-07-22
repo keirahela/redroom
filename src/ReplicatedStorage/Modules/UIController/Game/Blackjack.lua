@@ -10,10 +10,10 @@ return function(ui)
 
 	-- Camera settings for minigame
 	local player = Players.LocalPlayer
-	player.CameraMinZoomDistance = 2
 	player.CameraMaxZoomDistance = 2
+	player.CameraMinZoomDistance = 2
 	if player.Character and player.Character:FindFirstChild("Humanoid") then
-		player.Character.Humanoid.CameraOffset = Vector3.new(0, 0, -4)
+		player.Character.Humanoid.CameraOffset = Vector3.new(0, 1, -4)
 	end
 
 	-- Helper to clear cards
@@ -92,11 +92,12 @@ return function(ui)
 		cooldown()
 	end
 
+	local connections = {}
 	if hitButton then
-		hitButton.MouseButton1Click:Connect(onHit)
+		table.insert(connections, hitButton.MouseButton1Click:Connect(onHit))
 	end
 	if standButton then
-		standButton.MouseButton1Click:Connect(onStand)
+		table.insert(connections, standButton.MouseButton1Click:Connect(onStand))
 	end
 
 	local resultConn
@@ -122,6 +123,11 @@ return function(ui)
 
 	local function cleanup()
 		ui.Visible = false
+		for _, conn in ipairs(connections) do
+			if conn and typeof(conn) == "RBXScriptConnection" then
+				conn:Disconnect()
+			end
+		end
 		if resultConn and typeof(resultConn) == "RBXScriptConnection" then resultConn:Disconnect() end
 		player.CameraMinZoomDistance = 0.5
 		player.CameraMaxZoomDistance = 0.5

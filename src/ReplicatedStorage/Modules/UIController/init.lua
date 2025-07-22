@@ -47,6 +47,7 @@ function ui.start_timer(self: UIController, timer: number): boolean
 		task.cancel(self.timer_thread)
 	end
 	
+	self.game_ui.Background.Timer.Visible = true
 	self.game_ui.Background.Timer:WaitForChild("TimerNumber").Text = `{timer}`
 	
 	self.timer_thread = task.spawn(function()
@@ -59,6 +60,7 @@ function ui.start_timer(self: UIController, timer: number): boolean
 		end
 
 		self.timer_thread = nil
+		self.game_ui.Background.Timer.Visible = false
 	end)
 
 	return true
@@ -109,6 +111,33 @@ function ui.new(): UIController
 		
 		if ui_type ~= "Game" then
 			self[ui_type].close()
+		end
+	end)
+	
+	client.PlaySeatAnimation.On(function(animationId)
+		local player = Players.LocalPlayer
+		local character = player.Character
+		if character and character:FindFirstChild("Humanoid") then
+			local humanoid = character.Humanoid
+			local animator = humanoid:FindFirstChildOfClass("Animator")
+			if not animator then
+				animator = Instance.new("Animator")
+				animator.Parent = humanoid
+			end
+			local animation = Instance.new("Animation")
+			animation.AnimationId = "rbxassetid://" .. animationId
+			local track : AnimationTrack = animator:LoadAnimation(animation)
+			track.Looped = true
+			track:Play()
+		end
+	end)
+
+	client.TeleportCharacter.On(function(cframe)
+		local player = Players.LocalPlayer
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			character:PivotTo(cframe)
+			character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
 		end
 	end)
 		

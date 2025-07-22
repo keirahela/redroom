@@ -39,6 +39,7 @@ export type MatchObject = {
 }
 
 local CHARACTER_POSITIONS = workspace.Chairs
+local Players = game:GetService("Players")
 
 function match_object.new(): MatchObject
 	local self = setmetatable({}, match_object)
@@ -92,10 +93,14 @@ function match_object.start(self: MatchObject): ()
 				return
 			end
 
-			local targetCFrame = CHARACTER_POSITIONS:FindFirstChild(tostring(iteration)).CFrame * CFrame.new(0, 2, 0)
+			local targetCFrame: CFrame = CHARACTER_POSITIONS:FindFirstChild(tostring(iteration)).CFrame * CFrame.new(0, 2, 0)
 			if not targetCFrame then
 				return
 			end
+
+			local pos = targetCFrame.Position
+			local orientation = targetCFrame - pos
+			local tpCFrame = CFrame.new(pos.X, 8.7, pos.Z) * orientation
 
 			server.ShowUI.Fire(player, "Game", iteration)
 			
@@ -103,12 +108,16 @@ function match_object.start(self: MatchObject): ()
 			character.Humanoid.JumpHeight = 0
 			character.Humanoid.AutoRotate = false
 
-			character:PivotTo(targetCFrame)
+			character:PivotTo(tpCFrame)
+			server.TeleportCharacter.Fire(player, tpCFrame)
 			task.wait()
 			character.HumanoidRootPart.Anchored = true
 			iteration += 1
 		end)
 	end
+	
+	-- Fire PlaySeatAnimation event ONCE for all clients, now only passing animationId
+	server.PlaySeatAnimation.FireAll("71528301881949")
 	
 	task.delay(3, function()
 		self:set_state("IN_PROGRESS")
@@ -231,6 +240,9 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 				
 				
 			end
+		elseif #alive_players == 0 and self.state == "IN_PROGRESS" then
+			self:set_state("ENDING")
+			print("game is ending: no players left alive")
 		end
 	end
 end

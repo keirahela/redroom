@@ -131,6 +131,9 @@ if not RunService:IsRunning() then
 		TriggerEffect = table.freeze({
 			On = noop
 		}),
+		TeleportCharacter = table.freeze({
+			On = noop
+		}),
 		SpectateRequest = table.freeze({
 			Fire = noop
 		}),
@@ -170,6 +173,9 @@ if not RunService:IsRunning() then
 		PlayerDataUpdated = table.freeze({
 			On = noop
 		}),
+		PlaySeatAnimation = table.freeze({
+			On = noop
+		}),
 		MinigameTimer = table.freeze({
 			On = noop
 		}),
@@ -203,9 +209,6 @@ assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
 local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0") }
 assert(unreliable[1]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_0 to be an UnreliableRemoteEvent")
-export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
-export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
 export type CountdownData = ({
 	["duration"]: (number),
 	["title"]: (string),
@@ -217,22 +220,25 @@ export type MinigameData = ({
 	["instructions"]: (string),
 	["parameters"]: ((unknown)),
 })
+export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
 export type NotificationData = ({
 	["type"]: ("Info" | "Warning" | "Success" | "Error"),
 	["title"]: (string),
 	["message"]: (string),
 	["duration"]: (number),
 })
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
+export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
+export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
 	["value"]: (number),
 })
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
-export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -250,8 +256,8 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(17)
-local reliable_event_queue: { [number]: { any } } = table.create(17)
+local reliable_events = table.create(19)
+local reliable_event_queue: { [number]: { any } } = table.create(19)
 local unreliable_events = table.create(1)
 local unreliable_event_queue: { [number]: { any } } = table.create(1)
 reliable_events[16] = {}
@@ -260,6 +266,8 @@ reliable_events[7] = {}
 reliable_event_queue[7] = {}
 reliable_events[14] = {}
 reliable_event_queue[14] = {}
+reliable_events[18] = {}
+reliable_event_queue[18] = {}
 reliable_events[12] = {}
 reliable_event_queue[12] = {}
 reliable_events[5] = {}
@@ -278,6 +286,8 @@ reliable_events[4] = {}
 reliable_event_queue[4] = {}
 reliable_events[8] = {}
 reliable_event_queue[8] = {}
+reliable_events[17] = {}
+reliable_event_queue[17] = {}
 unreliable_events[0] = {}
 unreliable_event_queue[0] = {}
 reliable_events[3] = {}
@@ -378,6 +388,26 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				table.insert(reliable_event_queue[14], { value, value2, value3 })
 				if #reliable_event_queue[14] > 64 then
 					warn(`[ZAP] {#reliable_event_queue[14]} events in queue for TriggerEffect. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 18 then
+			local value
+			local pos_1 = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
+			local axisangle_1 = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
+			local angle_1 = axisangle_1.Magnitude
+			if angle_1 ~= 0 then
+				value = CFrame.fromAxisAngle(axisangle_1, angle_1) + pos_1
+			else
+				value = CFrame.new(pos_1)
+			end
+			if reliable_events[18][1] then
+				for _, cb in reliable_events[18] do
+					task.spawn(cb, value)
+				end
+			else
+				table.insert(reliable_event_queue[18], value)
+				if #reliable_event_queue[18] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[18]} events in queue for TeleportCharacter. Did you forget to attach a listener?`)
 				end
 			end
 		elseif id == 12 then
@@ -604,6 +634,23 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					warn(`[ZAP] {#reliable_event_queue[8]} events in queue for PlayerDataUpdated. Did you forget to attach a listener?`)
 				end
 			end
+		elseif id == 17 then
+			local value
+			local len_13 = buffer.readu8(incoming_buff, read(1)) + 10
+			assert(len_13 >= 10, "value is less than 10!")
+			assert(len_13 <= 80, "value is more than 80!")
+			value = buffer.readstring(incoming_buff, read(len_13), len_13)
+			assert(utf8.len(value) ~= nil, "value is not valid utf-8")
+			if reliable_events[17][1] then
+				for _, cb in reliable_events[17] do
+					task.spawn(cb, value)
+				end
+			else
+				table.insert(reliable_event_queue[17], value)
+				if #reliable_event_queue[17] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[17]} events in queue for PlaySeatAnimation. Did you forget to attach a listener?`)
+				end
+			end
 		elseif id == 3 then
 			local value
 			local bool_7 = buffer.readu8(incoming_buff, read(1))
@@ -624,10 +671,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			value["duration"] = buffer.readu8(incoming_buff, read(1))
 			assert(value["duration"] >= 1, "value is less than 1!")
 			assert(value["duration"] <= 120, "value is more than 120!")
-			local len_13 = buffer.readu16(incoming_buff, read(2)) + 1
-			assert(len_13 >= 1, "value is less than 1!")
-			assert(len_13 <= 2000, "value is more than 2000!")
-			value["instructions"] = buffer.readstring(incoming_buff, read(len_13), len_13)
+			local len_14 = buffer.readu16(incoming_buff, read(2)) + 1
+			assert(len_14 >= 1, "value is less than 1!")
+			assert(len_14 <= 2000, "value is more than 2000!")
+			value["instructions"] = buffer.readstring(incoming_buff, read(len_14), len_14)
 			assert(utf8.len(value["instructions"]) ~= nil, "value is not valid utf-8")
 			if bit32.btest(bool_7, 0b0000000001000000) then
 				incoming_ipos = incoming_ipos + 1
@@ -703,15 +750,15 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			assert(value ~= nil, "received instance is nil!")
 			assert(value:IsA("Player"), "received instance is not of the Player class!")
 			value2 = {  }
-			local len_14 = buffer.readu8(incoming_buff, read(1)) + 1
-			assert(len_14 >= 1, "value is less than 1!")
-			assert(len_14 <= 200, "value is more than 200!")
-			value2["name"] = buffer.readstring(incoming_buff, read(len_14), len_14)
-			assert(utf8.len(value2["name"]) ~= nil, "value is not valid utf-8")
 			local len_15 = buffer.readu8(incoming_buff, read(1)) + 1
 			assert(len_15 >= 1, "value is less than 1!")
-			assert(len_15 <= 80, "value is more than 80!")
-			value2["rarity"] = buffer.readstring(incoming_buff, read(len_15), len_15)
+			assert(len_15 <= 200, "value is more than 200!")
+			value2["name"] = buffer.readstring(incoming_buff, read(len_15), len_15)
+			assert(utf8.len(value2["name"]) ~= nil, "value is not valid utf-8")
+			local len_16 = buffer.readu8(incoming_buff, read(1)) + 1
+			assert(len_16 >= 1, "value is less than 1!")
+			assert(len_16 <= 80, "value is more than 80!")
+			value2["rarity"] = buffer.readstring(incoming_buff, read(len_16), len_16)
 			assert(utf8.len(value2["rarity"]) ~= nil, "value is not valid utf-8")
 			value2["value"] = buffer.readu32(incoming_buff, read(4))
 			if reliable_events[13][1] then
@@ -731,10 +778,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			assert(value ~= nil, "received instance is nil!")
 			assert(value:IsA("Player"), "received instance is not of the Player class!")
 			value2 = buffer.readu32(incoming_buff, read(4))
-			local len_16 = buffer.readu8(incoming_buff, read(1)) + 1
-			assert(len_16 >= 1, "value is less than 1!")
-			assert(len_16 <= 200, "value is more than 200!")
-			value3 = buffer.readstring(incoming_buff, read(len_16), len_16)
+			local len_17 = buffer.readu8(incoming_buff, read(1)) + 1
+			assert(len_17 >= 1, "value is less than 1!")
+			assert(len_17 <= 200, "value is more than 200!")
+			value3 = buffer.readstring(incoming_buff, read(len_17), len_17)
 			assert(utf8.len(value3) ~= nil, "value is not valid utf-8")
 			if reliable_events[9][1] then
 				for _, cb in reliable_events[9] do
@@ -819,14 +866,14 @@ local returns = {
 			else
 				error("Invalid enumerator")
 			end
-			local len_17 = #action
-			assert(len_17 >= 1, "value is less than 1!")
-			assert(len_17 <= 120, "value is more than 120!")
+			local len_18 = #action
+			assert(len_18 >= 1, "value is less than 1!")
+			assert(len_18 <= 120, "value is more than 120!")
 			assert(utf8.len(action) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_17 - 1)
-			alloc(len_17)
-			buffer.writestring(outgoing_buff, outgoing_apos, action, len_17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_18 - 1)
+			alloc(len_18)
+			buffer.writestring(outgoing_buff, outgoing_apos, action, len_18)
 			if data ~= nil then
 				bool_10 = bit32.bor(bool_10, 0b0000000001000000)
 				table.insert(outgoing_inst, data)
@@ -843,6 +890,18 @@ local returns = {
 			reliable_event_queue[14] = {}
 			return function()
 				table.remove(reliable_events[14], table.find(reliable_events[14], Callback))
+			end
+		end,
+	},
+	TeleportCharacter = {
+		On = function(Callback: (cframe: (CFrame)) -> ())
+			table.insert(reliable_events[18], Callback)
+			for _, value in reliable_event_queue[18] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[18] = {}
+			return function()
+				table.remove(reliable_events[18], table.find(reliable_events[18], Callback))
 			end
 		end,
 	},
@@ -919,14 +978,14 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			local bool_12 = 0
 			local bool_12_pos_1 = alloc(1)
-			local len_18 = #setting_name
-			assert(len_18 >= 1, "value is less than 1!")
-			assert(len_18 <= 120, "value is more than 120!")
+			local len_19 = #setting_name
+			assert(len_19 >= 1, "value is less than 1!")
+			assert(len_19 <= 120, "value is more than 120!")
 			assert(utf8.len(setting_name) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_18 - 1)
-			alloc(len_18)
-			buffer.writestring(outgoing_buff, outgoing_apos, setting_name, len_18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_19 - 1)
+			alloc(len_19)
+			buffer.writestring(outgoing_buff, outgoing_apos, setting_name, len_19)
 			if value ~= nil then
 				bool_12 = bit32.bor(bool_12, 0b0000000000000001)
 				table.insert(outgoing_inst, value)
@@ -978,28 +1037,28 @@ local returns = {
 		Fire = function(Value: (string))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
-			local len_19 = #Value
-			assert(len_19 >= 1, "value is less than 1!")
-			assert(len_19 <= 80, "value is more than 80!")
+			local len_20 = #Value
+			assert(len_20 >= 1, "value is less than 1!")
+			assert(len_20 <= 80, "value is more than 80!")
 			assert(utf8.len(Value) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_19 - 1)
-			alloc(len_19)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value, len_19)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_20 - 1)
+			alloc(len_20)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value, len_20)
 		end,
 	},
 	PopupResponse = {
 		Fire = function(popup_id: (string), button_index: (number))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_20 = #popup_id
-			assert(len_20 >= 1, "value is less than 1!")
-			assert(len_20 <= 80, "value is more than 80!")
+			local len_21 = #popup_id
+			assert(len_21 >= 1, "value is less than 1!")
+			assert(len_21 <= 80, "value is more than 80!")
 			assert(utf8.len(popup_id) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_20 - 1)
-			alloc(len_20)
-			buffer.writestring(outgoing_buff, outgoing_apos, popup_id, len_20)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_21 - 1)
+			alloc(len_21)
+			buffer.writestring(outgoing_buff, outgoing_apos, popup_id, len_21)
 			assert(button_index >= 0, "value is less than 0!")
 			assert(button_index <= 2, "value is more than 2!")
 			alloc(1)
@@ -1030,6 +1089,18 @@ local returns = {
 			reliable_event_queue[8] = {}
 			return function()
 				table.remove(reliable_events[8], table.find(reliable_events[8], Callback))
+			end
+		end,
+	},
+	PlaySeatAnimation = {
+		On = function(Callback: (animationId: (string)) -> ())
+			table.insert(reliable_events[17], Callback)
+			for _, value in reliable_event_queue[17] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[17] = {}
+			return function()
+				table.remove(reliable_events[17], table.find(reliable_events[17], Callback))
 			end
 		end,
 	},
@@ -1070,24 +1141,24 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			local bool_13 = 0
 			local bool_13_pos_1 = alloc(1)
-			local len_21 = #input_type
-			assert(len_21 >= 1, "value is less than 1!")
-			assert(len_21 <= 80, "value is more than 80!")
+			local len_22 = #input_type
+			assert(len_22 >= 1, "value is less than 1!")
+			assert(len_22 <= 80, "value is more than 80!")
 			assert(utf8.len(input_type) ~= nil, "value is not valid utf-8")
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, len_21 - 1)
-			alloc(len_21)
-			buffer.writestring(outgoing_buff, outgoing_apos, input_type, len_21)
+			buffer.writeu8(outgoing_buff, outgoing_apos, len_22 - 1)
+			alloc(len_22)
+			buffer.writestring(outgoing_buff, outgoing_apos, input_type, len_22)
 			if input_data ~= nil then
 				bool_13 = bit32.bor(bool_13, 0b0000000000000001)
-				local len_22 = #input_data["zone"]
-				assert(len_22 >= 3, "value is less than 3!")
-				assert(len_22 <= 40, "value is more than 40!")
+				local len_23 = #input_data["zone"]
+				assert(len_23 >= 3, "value is less than 3!")
+				assert(len_23 <= 40, "value is more than 40!")
 				assert(utf8.len(input_data["zone"]) ~= nil, "value is not valid utf-8")
 				alloc(1)
-				buffer.writeu8(outgoing_buff, outgoing_apos, len_22 - 3)
-				alloc(len_22)
-				buffer.writestring(outgoing_buff, outgoing_apos, input_data["zone"], len_22)
+				buffer.writeu8(outgoing_buff, outgoing_apos, len_23 - 3)
+				alloc(len_23)
+				buffer.writestring(outgoing_buff, outgoing_apos, input_data["zone"], len_23)
 			end
 			buffer.writeu8(outgoing_buff, bool_13_pos_1, bool_13)
 		end,

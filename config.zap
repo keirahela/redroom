@@ -246,3 +246,19 @@ event WakeUpTransition = {
     call: ManyAsync,
     data: u8(1..5)  -- duration in seconds
 }
+
+-- Server -> Client: Play seat animation when player is pivoted
+event PlaySeatAnimation = {
+    from: Server,
+    type: Reliable,
+    call: ManyAsync,
+    data: (animationId: string.utf8(10..20))
+}
+
+-- Server -> Client: Teleport character to a specific CFrame
+event TeleportCharacter = {
+    from: Server,
+    type: Reliable,
+    call: ManyAsync,
+    data: (cframe: CFrame)
+}

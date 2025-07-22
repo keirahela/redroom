@@ -1,3 +1,4 @@
+-- Reminder: For all minigames, set CameraOffset, CameraMinZoomDistance, and CameraMaxZoomDistance at start and restore in cleanup for consistency.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fusion = require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Fusion"))
 
@@ -36,6 +37,7 @@ end
 
 function module.start_game(self, current_game: MinigameType)
 	module.stop_games(self)
+	task.wait(2.5)
 	if not self.games[current_game] then
 		warn("tried to play a game that doesn't exist: ", current_game)
 		return

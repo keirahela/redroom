@@ -67,6 +67,11 @@ minigame_signal:Connect(function()
 		return
 	end
 	local match = service.match
+	-- Prevent continuing if match is finished or ending
+	if match.state == "FINISHED" or match.state == "ENDING" then
+		print("[MatchService] Not switching minigame: match is finished or ending.")
+		return
+	end
 	local alive_players = match:get_alive_players()
 	-- TESTING: Always go to next minigame, do not end when only one player left
 	-- if #alive_players <= 1 then

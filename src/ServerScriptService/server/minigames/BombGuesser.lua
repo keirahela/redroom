@@ -7,7 +7,7 @@ local Players = game:GetService("Players")
 local player_state = {}
 local match_ref = nil
 local inputConn = nil
-local dud_index = nil
+-- Remove global dud_index, now each player gets their own
 local round_active = false
 local timer_thread = nil
 
@@ -27,14 +27,14 @@ function bombguesser.start(match)
 	print("[BombGuesser][SERVER] Starting BombGuesser minigame")
 	player_state = {}
 	match_ref = match
-	dud_index = math.random(1, 3)
 	round_active = true
 	if inputConn then
 		inputConn()
 		inputConn = nil
 	end
 	for _, pdata in ipairs(getAlivePlayers()) do
-		player_state[pdata.player] = { picked = false }
+		-- Give each player their own random dud
+		player_state[pdata.player] = { picked = false, dud_index = math.random(1, 3) }
 		server.UpdateUI.Fire(pdata.player, "Game", "BombGuesserStart", { numBombs = 3 })
 	end
 	inputConn = server.MinigameInput.SetCallback(function(player, input_type, input_data)
@@ -45,15 +45,16 @@ function bombguesser.start(match)
 		end
 		if input_type == "bomb_pick" and type(input_data) == "table" and input_data.zone then
 			local pick = tonumber(input_data.zone:match("%d+"))
-			print("[BombGuesser] Parsed pick:", pick, "dud_index:", dud_index)
+			local player_dud = player_state[player].dud_index
+			print("[BombGuesser] Parsed pick:", pick, "player_dud_index:", player_dud)
 			if not pick then print("[BombGuesser] Invalid pick!"); return end
 			player_state[player].picked = true
-			if pick == dud_index then
+			if pick == player_dud then
 				print("[BombGuesser] Player survived! Sending advance.")
-				server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "advance", dud = dud_index, pick = pick })
+				server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "advance", dud = player_dud, pick = pick })
 			else
 				print("[BombGuesser] Player exploded! Sending eliminate.")
-				server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "eliminate", dud = dud_index, pick = pick })
+				server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "eliminate", dud = player_dud, pick = pick })
 				if match_ref and match_ref.eliminate_player then
 					match_ref:eliminate_player(player)
 				end
@@ -69,14 +70,18 @@ function bombguesser.start(match)
 		end
 		if all_picked and round_active then
 			round_active = false
-			print("[BombGuesser] All players picked. Ending minigame.")
-			minigame_signal:Fire()
+			print("[BombGuesser] All players picked. Adding 3 second delay before ending minigame.")
+			-- Add 3 second delay to show "You survived!" message using coroutine
+			task.spawn(function()
+				task.wait(3)
+				minigame_signal:Fire()
+			end)
 		end
 	end)
 	print("[BombGuesser][SERVER] SetCallback registered for BombGuesser")
-	-- Timeout after 20 seconds
+	-- Timeout after 60 seconds (changed from 20)
 	timer_thread = coroutine.create(function()
-		local t = 20
+		local t = 60
 		while t > 0 and round_active do
 			for _, pdata in ipairs(getAlivePlayers()) do
 				local player = pdata.player
@@ -89,14 +94,19 @@ function bombguesser.start(match)
 			for _, pdata in ipairs(getAlivePlayers()) do
 				local player = pdata.player
 				if not player_state[player] or not player_state[player].picked then
-					server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "eliminate", dud = dud_index, pick = nil })
+					local player_dud = player_state[player] and player_state[player].dud_index or math.random(1, 3)
+					server.UpdateUI.Fire(player, "Game", "BombGuesserResult", { result = "eliminate", dud = player_dud, pick = nil })
 					if match_ref and match_ref.eliminate_player then
 						match_ref:eliminate_player(player)
 					end
 				end
 			end
 			round_active = false
-			minigame_signal:Fire()
+			-- Add delay here too for timer expiry case using coroutine
+			task.spawn(function()
+				task.wait(3)
+				minigame_signal:Fire()
+			end)
 		end
 	end)
 	coroutine.resume(timer_thread)
@@ -109,7 +119,6 @@ function bombguesser.stop()
 	end
 	player_state = {}
 	match_ref = nil
-	dud_index = nil
 	round_active = false
 	if typeof(timer_thread) == "thread" then
 		coroutine.close(timer_thread)

@@ -59,6 +59,21 @@ return function(ui)
 				arrow.Visible = false
 			end
 		end
+		-- Restore camera settings
+		local player = Players.LocalPlayer
+		player.CameraMinZoomDistance = 0.5
+		player.CameraMaxZoomDistance = 0.5
+		if player.Character and player.Character:FindFirstChild("Humanoid") then
+			player.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+		end
+	end
+
+	-- Camera settings for minigame
+	local player = Players.LocalPlayer
+	player.CameraMaxZoomDistance = 2
+	player.CameraMinZoomDistance = 2
+	if player.Character and player.Character:FindFirstChild("Humanoid") then
+		player.Character.Humanoid.CameraOffset = Vector3.new(0, 1, -4)
 	end
 
 	-- Hover logic

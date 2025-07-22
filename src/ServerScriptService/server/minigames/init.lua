@@ -21,21 +21,21 @@ export type MinigameModule = {
 }
 
 local games = {
+	React,
+	RatRace,
 	BombGuesser,
 	Blackjack,
 	HigherLower,
 	Maze,
-	RatRace,
-	React
 }
 
 local game_names = {
+	"React",
+	"RatRace",
 	"BombGuesser",
 	"Blackjack",
 	"HigherLower", 
 	"Maze",
-	"RatRace",
-	"React"
 }
 
 local singleton: MinigameModule? = nil

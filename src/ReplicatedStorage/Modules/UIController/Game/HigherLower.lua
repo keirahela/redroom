@@ -13,10 +13,10 @@ return function(ui)
 
 	-- Camera settings for minigame
 	local player = Players.LocalPlayer
-	player.CameraMinZoomDistance = 2
 	player.CameraMaxZoomDistance = 2
+	player.CameraMinZoomDistance = 2
 	if player.Character and player.Character:FindFirstChild("Humanoid") then
-		player.Character.Humanoid.CameraOffset = Vector3.new(0, 0, -4)
+		player.Character.Humanoid.CameraOffset = Vector3.new(0, 1, -4)
 	end
 
 	-- Enable buttons
