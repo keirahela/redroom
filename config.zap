@@ -3,7 +3,7 @@ opt client_output = "./src/ReplicatedStorage/network/client.lua"
 
 -- Enums for game states and UI management
 type GameState = enum { "WAITING", "STARTING", "IN_PROGRESS", "FINISHED", "ENDING" }
-type MinigameType = enum { "Maze", "HigherLower", "Blackjack", "RatRace", "React", "BombGuesser" }
+type MinigameType = enum { "Maze", "HigherLower", "Blackjack", "RatRace", "React", "BombGuesser", "DragTheLine" }
 type UIType = enum { "MainMenu", "Shop", "Settings", "CrateOpening", "Spectator", "Game" }
 type NotificationType = enum { "Info", "Warning", "Success", "Error" }
 
@@ -97,6 +97,14 @@ event PlayerEliminated = {
     type: Reliable,
     call: ManyAsync,
     data: (player: Instance.Player, reason: string.utf8(1..50))
+}
+
+-- Client -> Server: Winner sends chosen player for elimination
+event WinnerChosePlayer = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
+    data: (chosenUserId: u32)
 }
 
 -- ===== UI MANAGEMENT EVENTS =====

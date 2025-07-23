@@ -119,6 +119,9 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		WinnerChosePlayer = table.freeze({
+			SetCallback = noop
+		}),
 		WakeUpTransition = table.freeze({
 			Fire = noop,
 			FireAll = noop,
@@ -326,36 +329,36 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine")
 export type NotificationData = ({
 	["type"]: ("Info" | "Warning" | "Success" | "Error"),
 	["title"]: (string),
 	["message"]: (string),
 	["duration"]: (number),
 })
-export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
-export type MinigameData = ({
-	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
-	["duration"]: (number),
-	["instructions"]: (string),
-	["parameters"]: ((unknown)),
-})
-export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
-export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
 export type CountdownData = ({
 	["duration"]: (number),
 	["title"]: (string),
 	["description"]: (string),
 })
+export type MinigameData = ({
+	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
+	["duration"]: (number),
+	["instructions"]: (string),
+	["parameters"]: ((unknown)),
+})
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
+export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
+export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
 	["value"]: (number),
 })
+export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
 
 local function SendEvents()
 	for player, outgoing in player_map do
@@ -375,7 +378,7 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(6)
+local reliable_events = table.create(7)
 reliable.OnServerEvent:Connect(function(player, buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -385,6 +388,12 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 	while incoming_read < len do
 		local id = buffer.readu8(buff, read(1))
 		if id == 1 then
+			local value
+			value = buffer.readu32(incoming_buff, read(4))
+			if reliable_events[1] then
+				task.spawn(reliable_events[1], player, value)
+			end
+		elseif id == 2 then
 			local value, value2, value3
 			local bool_1 = buffer.readu8(incoming_buff, read(1))
 			if bit32.btest(bool_1, 0b0000000000000001) then
@@ -411,10 +420,10 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 			else
 				value3 = nil
 			end
-			if reliable_events[1] then
-				task.spawn(reliable_events[1], player, value, value2, value3)
+			if reliable_events[2] then
+				task.spawn(reliable_events[2], player, value, value2, value3)
 			end
-		elseif id == 3 then
+		elseif id == 4 then
 			local value
 			local bool_2 = buffer.readu8(incoming_buff, read(1))
 			if bit32.btest(bool_2, 0b0000000000000001) then
@@ -424,10 +433,10 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 			else
 				value = nil
 			end
-			if reliable_events[3] then
-				task.spawn(reliable_events[3], player, value)
+			if reliable_events[4] then
+				task.spawn(reliable_events[4], player, value)
 			end
-		elseif id == 5 then
+		elseif id == 6 then
 			local value, value2
 			local bool_3 = buffer.readu8(incoming_buff, read(1))
 			local len_2 = buffer.readu8(incoming_buff, read(1)) + 1
@@ -441,20 +450,20 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 			else
 				value2 = nil
 			end
-			if reliable_events[5] then
-				task.spawn(reliable_events[5], player, value, value2)
+			if reliable_events[6] then
+				task.spawn(reliable_events[6], player, value, value2)
 			end
-		elseif id == 4 then
+		elseif id == 5 then
 			local value
 			local len_3 = buffer.readu8(incoming_buff, read(1)) + 1
 			assert(len_3 >= 1, "value is less than 1!")
 			assert(len_3 <= 80, "value is more than 80!")
 			value = buffer.readstring(incoming_buff, read(len_3), len_3)
 			assert(utf8.len(value) ~= nil, "value is not valid utf-8")
-			if reliable_events[4] then
-				task.spawn(reliable_events[4], player, value)
+			if reliable_events[5] then
+				task.spawn(reliable_events[5], player, value)
 			end
-		elseif id == 2 then
+		elseif id == 3 then
 			local value, value2
 			local len_4 = buffer.readu8(incoming_buff, read(1)) + 1
 			assert(len_4 >= 1, "value is less than 1!")
@@ -464,8 +473,8 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 			value2 = buffer.readu8(incoming_buff, read(1))
 			assert(value2 >= 0, "value is less than 0!")
 			assert(value2 <= 2, "value is more than 2!")
-			if reliable_events[2] then
-				task.spawn(reliable_events[2], player, value, value2)
+			if reliable_events[3] then
+				task.spawn(reliable_events[3], player, value, value2)
 			end
 		elseif id == 0 then
 			local value, value2
@@ -498,6 +507,14 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
+	WinnerChosePlayer = {
+		SetCallback = function(Callback: (Player: Player, chosenUserId: (number)) -> ()): () -> ()
+			reliable_events[1] = Callback
+			return function()
+				reliable_events[1] = nil
+			end
+		end,
+	},
 	WakeUpTransition = {
 		Fire = function(Player: Player, phase: (string), duration: (number))
 			load_player(Player)
@@ -834,9 +851,9 @@ local returns = {
 	},
 	UIInteraction = {
 		SetCallback = function(Callback: (Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), action: (string), data: ((unknown))) -> ()): () -> ()
-			reliable_events[1] = Callback
+			reliable_events[2] = Callback
 			return function()
-				reliable_events[1] = nil
+				reliable_events[2] = nil
 			end
 		end,
 	},
@@ -1131,9 +1148,9 @@ local returns = {
 	},
 	SpectateRequest = {
 		SetCallback = function(Callback: (Player: Player, Value: ((Player)?)) -> ()): () -> ()
-			reliable_events[3] = Callback
+			reliable_events[4] = Callback
 			return function()
-				reliable_events[3] = nil
+				reliable_events[4] = nil
 			end
 		end,
 	},
@@ -1882,9 +1899,9 @@ local returns = {
 	},
 	SettingsChanged = {
 		SetCallback = function(Callback: (Player: Player, setting_name: (string), value: ((unknown))) -> ()): () -> ()
-			reliable_events[5] = Callback
+			reliable_events[6] = Callback
 			return function()
-				reliable_events[5] = nil
+				reliable_events[6] = nil
 			end
 		end,
 	},
@@ -2276,17 +2293,17 @@ local returns = {
 	},
 	PurchaseCrate = {
 		SetCallback = function(Callback: (Player: Player, Value: (string)) -> ()): () -> ()
-			reliable_events[4] = Callback
+			reliable_events[5] = Callback
 			return function()
-				reliable_events[4] = nil
+				reliable_events[5] = nil
 			end
 		end,
 	},
 	PopupResponse = {
 		SetCallback = function(Callback: (Player: Player, popup_id: (string), button_index: (number)) -> ()): () -> ()
-			reliable_events[2] = Callback
+			reliable_events[3] = Callback
 			return function()
-				reliable_events[2] = nil
+				reliable_events[3] = nil
 			end
 		end,
 	},
@@ -2688,7 +2705,7 @@ local returns = {
 	},
 	MinigameStarted = {
 		Fire = function(Player: Player, Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),
@@ -2710,6 +2727,8 @@ local returns = {
 				bool_35 = bit32.bor(bool_35, 0b0000000000010000)
 			elseif Value["type"] == "BombGuesser" then
 				bool_35 = bit32.bor(bool_35, 0b0000000000100000)
+			elseif Value["type"] == "DragTheLine" then
+				bool_35 = bit32.bor(bool_35, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -2726,14 +2745,14 @@ local returns = {
 			alloc(len_77)
 			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_77)
 			if Value["parameters"] ~= nil then
-				bool_35 = bit32.bor(bool_35, 0b0000000001000000)
+				bool_35 = bit32.bor(bool_35, 0b0000000010000000)
 				table.insert(outgoing_inst, Value["parameters"])
 			end
 			buffer.writeu8(outgoing_buff, bool_35_pos_1, bool_35)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),
@@ -2755,6 +2774,8 @@ local returns = {
 				bool_36 = bit32.bor(bool_36, 0b0000000000010000)
 			elseif Value["type"] == "BombGuesser" then
 				bool_36 = bit32.bor(bool_36, 0b0000000000100000)
+			elseif Value["type"] == "DragTheLine" then
+				bool_36 = bit32.bor(bool_36, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -2771,7 +2792,7 @@ local returns = {
 			alloc(len_78)
 			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_78)
 			if Value["parameters"] ~= nil then
-				bool_36 = bit32.bor(bool_36, 0b0000000001000000)
+				bool_36 = bit32.bor(bool_36, 0b0000000010000000)
 				table.insert(outgoing_inst, Value["parameters"])
 			end
 			buffer.writeu8(outgoing_buff, bool_36_pos_1, bool_36)
@@ -2785,7 +2806,7 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),
@@ -2807,6 +2828,8 @@ local returns = {
 				bool_37 = bit32.bor(bool_37, 0b0000000000010000)
 			elseif Value["type"] == "BombGuesser" then
 				bool_37 = bit32.bor(bool_37, 0b0000000000100000)
+			elseif Value["type"] == "DragTheLine" then
+				bool_37 = bit32.bor(bool_37, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -2823,7 +2846,7 @@ local returns = {
 			alloc(len_79)
 			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_79)
 			if Value["parameters"] ~= nil then
-				bool_37 = bit32.bor(bool_37, 0b0000000001000000)
+				bool_37 = bit32.bor(bool_37, 0b0000000010000000)
 				table.insert(outgoing_inst, Value["parameters"])
 			end
 			buffer.writeu8(outgoing_buff, bool_37_pos_1, bool_37)
@@ -2839,7 +2862,7 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),
@@ -2861,6 +2884,8 @@ local returns = {
 				bool_38 = bit32.bor(bool_38, 0b0000000000010000)
 			elseif Value["type"] == "BombGuesser" then
 				bool_38 = bit32.bor(bool_38, 0b0000000000100000)
+			elseif Value["type"] == "DragTheLine" then
+				bool_38 = bit32.bor(bool_38, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -2877,7 +2902,7 @@ local returns = {
 			alloc(len_80)
 			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_80)
 			if Value["parameters"] ~= nil then
-				bool_38 = bit32.bor(bool_38, 0b0000000001000000)
+				bool_38 = bit32.bor(bool_38, 0b0000000010000000)
 				table.insert(outgoing_inst, Value["parameters"])
 			end
 			buffer.writeu8(outgoing_buff, bool_38_pos_1, bool_38)
@@ -2891,7 +2916,7 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),
@@ -2913,6 +2938,8 @@ local returns = {
 				bool_39 = bit32.bor(bool_39, 0b0000000000010000)
 			elseif Value["type"] == "BombGuesser" then
 				bool_39 = bit32.bor(bool_39, 0b0000000000100000)
+			elseif Value["type"] == "DragTheLine" then
+				bool_39 = bit32.bor(bool_39, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -2929,7 +2956,7 @@ local returns = {
 			alloc(len_81)
 			buffer.writestring(outgoing_buff, outgoing_apos, Value["instructions"], len_81)
 			if Value["parameters"] ~= nil then
-				bool_39 = bit32.bor(bool_39, 0b0000000001000000)
+				bool_39 = bit32.bor(bool_39, 0b0000000010000000)
 				table.insert(outgoing_inst, Value["parameters"])
 			end
 			buffer.writeu8(outgoing_buff, bool_39_pos_1, bool_39)

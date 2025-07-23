@@ -1,4 +1,5 @@
 --!strict
+local DISABLE_DYING_FOR_TESTING = true -- Set to true to disable dying for testing all minigames
 local server = require(game:GetService("ReplicatedStorage"):WaitForChild("network"):WaitForChild("server"))
 local data = require(game:GetService("ServerScriptService"):WaitForChild("server"):WaitForChild("data"))
 local minigames = require(game:GetService("ServerScriptService"):WaitForChild("server"):WaitForChild("minigames"))
@@ -23,6 +24,7 @@ export type MatchObject = {
 	max_players: number,
 	min_players: number,
 	minigames_handler: minigames.MinigameModule,
+	last_minigame_winner: Player?,
 	
 	start: (self: MatchObject) -> (),
 	add_player: (self: MatchObject, player: Player) -> boolean,
@@ -53,7 +55,8 @@ function match_object.new(): MatchObject
 	self.minigames_handler = minigames.new()
 	self.round_number = 0
 	self.max_players = 6
-	self.min_players = 1
+	self.min_players = 2
+	self.last_minigame_winner = nil
 	
 	return self :: any
 end
@@ -69,6 +72,7 @@ function match_object.start(self: MatchObject): ()
 		return
 	end
 	
+	self.last_minigame_winner = nil -- Reset winner at the start of each round
 	self:set_state("STARTING")
 	self.start_time = tick()
 	self.round_number = 1
@@ -76,6 +80,11 @@ function match_object.start(self: MatchObject): ()
 	for player, data in pairs(self.players) do
 		data.is_alive = true
 		data.is_spectating = false
+
+		server.PlayerDataUpdated.Fire(player, player, {
+            is_alive = data.is_alive,
+            is_spectating = data.is_spectating,
+        })
 	end
 	
 	server.RoundStarting.FireAll({
@@ -88,8 +97,9 @@ function match_object.start(self: MatchObject): ()
 	server.WakeUpTransition.FireAll("fadeout", 2)
 	task.wait(2)
 
-	local iteration = 1
+	local iteration = 0
 	for player, data in next, self.players do
+		iteration += 1
 		task.spawn(function()
 			local character = player.Character
 			if not character then
@@ -110,18 +120,25 @@ function match_object.start(self: MatchObject): ()
 			local tpCFrame = CFrame.new(pos.X, 8.7, pos.Z) * orientation
 
 			server.ShowUI.Fire(player, "Game", iteration)
-			character.HumanoidRootPart.Anchored = true
-			character.Humanoid.WalkSpeed = 0
-			character.Humanoid.JumpHeight = 0
-			character.Humanoid.AutoRotate = false
+			local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChild("Humanoid")
+			if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
+				humanoidRootPart.Anchored = true
+				humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0)
+			end
+			if humanoid and humanoid:IsA("Humanoid") then
+				humanoid.WalkSpeed = 0
+				humanoid.JumpHeight = 0
+				humanoid.AutoRotate = false
+			end
 			character:PivotTo(tpCFrame)
-			character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
 			server.TeleportCharacter.Fire(player, tpCFrame)
 			task.wait()
-			character.HumanoidRootPart.Anchored = true
+			if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
+				humanoidRootPart.Anchored = true
+			end
 			-- Store the chair/tv id for this player
 			self.players[player].tv_id = iteration
-			iteration += 1
 		end)
 	end
 
@@ -135,11 +152,13 @@ function match_object.start(self: MatchObject): ()
 	-- Wait for fade in and 15s before starting minigame
 	task.delay(3 + 15, function()
 		-- Lower all TVs (tagged 'TV') using Heartbeat loop for both BaseParts and Models
+		-- Play MonitorsBeingLifted sound for all players at default speed (0.45)
+		server.UpdateUI.FireAll("Game", "PlaySFX", { name = "MonitorsBeingLifted" })
+		local soundDuration = 2.926 / 0.65
 		for _, tv in ipairs(CollectionService:GetTagged("TV")) do
 			local startCFrame
 			if tv:IsA("BasePart") then
 				tv.Anchored = true
-				print("Lowering TV BasePart", tv, "Anchored:", tv.Anchored)
 				startCFrame = tv.CFrame
 			elseif tv:IsA("Model") then
 				startCFrame = tv:GetPivot()
@@ -150,7 +169,7 @@ function match_object.start(self: MatchObject): ()
 			local targetY = tv:IsA("BasePart") and 9.69 or 20.36
 			local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
 			local startTime = tick()
-			local duration = 1
+			local duration = soundDuration
 			local conn
 			conn = RunService.Heartbeat:Connect(function()
 				local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
@@ -202,6 +221,9 @@ function match_object.remove_player(self: MatchObject, player: Player): boolean
 	local player_data = self.players[player]
 	local tv_id = player_data and player_data.tv_id
 	if tv_id then
+		-- Play MonitorsBeingLifted sound for all players at default speed (0.45)
+		server.UpdateUI.FireAll("Game", "PlaySFX", { name = "MonitorsBeingLifted" })
+		local soundDuration = 2.926 / 0.65
 		for _, tv in ipairs(CollectionService:GetTagged("TV")) do
 			local tvId = tv:GetAttribute("id")
 			if tostring(tvId) == tostring(tv_id) then
@@ -218,7 +240,7 @@ function match_object.remove_player(self: MatchObject, player: Player): boolean
 				local targetY = tv:IsA("BasePart") and 20.095 or 30.765
 				local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
 				local startTime = tick()
-				local duration = 1
+				local duration = soundDuration
 				local conn
 				conn = RunService.Heartbeat:Connect(function()
 					local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
@@ -238,7 +260,7 @@ function match_object.remove_player(self: MatchObject, player: Player): boolean
 	
 	print(`{player.Name} was removed`)
 	
-	if self.state == "IN_PROGRESS" and self:get_player_count() <= 1 then
+	if self:get_state() == "IN_PROGRESS" and self:get_player_count() <= 1 then
 		self:set_state("FINISHED")
 	end
 	
@@ -253,6 +275,7 @@ function match_object.reset(self: MatchObject): ()
 	self.state = "WAITING"
 	self.start_time = nil
 	self.round_number = 0
+	self.last_minigame_winner = nil -- Also reset winner on full match reset
 	
 end
 
@@ -277,20 +300,53 @@ function match_object.get_alive_players(self: MatchObject): { PlayerData }
 	return alive_players
 end
 
+-- Only keep the reset_player_state logic here, do not reference singleton
+local function reset_player_state(player)
+    local spawnLocation = workspace:FindFirstChildOfClass("SpawnLocation")
+    if player and player.Character and spawnLocation then
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp:IsA("BasePart") then
+			hrp.Anchored = false
+            hrp.CFrame = spawnLocation.CFrame + Vector3.new(0, 5, 0)
+            hrp.Velocity = Vector3.new(0,0,0)
+        end
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid and humanoid:IsA("Humanoid") then
+            humanoid.WalkSpeed = 16
+            humanoid.JumpHeight = 7.2
+            humanoid.AutoRotate = true
+            humanoid.CameraOffset = Vector3.new(0,0,0)
+        end
+    end
+end
+
+-- In eliminate_player, only call reset_player_state(player) and do not reference singleton
 function match_object.eliminate_player(self: MatchObject, player: Player): ()
-	local player_data = self.players[player]
-	if not player_data then
-		return
-	end
-	
-	local data = data.takeLives(player, 1)
-	
-	local lives = 0
-	if data and data.Lives then
-		lives = data.Lives
-	end
-	
-	if lives <= 0 then
+    if DISABLE_DYING_FOR_TESTING then
+        print("[TESTING] Dying is disabled. Skipping elimination for", player.Name)
+        return
+    end
+    local player_data = self.players[player]
+    if not player_data then
+        return
+    end
+
+    local current_data = data.takeLives(player, 1)
+    local lives = 0
+    if current_data and current_data.Lives then
+        lives = current_data.Lives
+    end
+
+    if lives > 0 then
+        -- Player lost a life but is not eliminated
+        server.PlayerDataUpdated.Fire(player, player, {
+            is_alive = player_data.is_alive,
+            is_spectating = player_data.is_spectating,
+            lives = lives
+        })
+        -- Optionally notify the player/UI that they lost a life
+        return
+    elseif lives <= 0 then
 		player_data.is_alive = false
 		player_data.is_spectating = true
 		
@@ -305,6 +361,9 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 		-- Lerp TV up for this player using tv_id
 		local tv_id = player_data.tv_id
 		if tv_id then
+			-- Play MonitorsBeingLifted sound for all players at default speed (0.45)
+			server.UpdateUI.FireAll("Game", "PlaySFX", { name = "MonitorsBeingLifted" })
+			local soundDuration = 2.926 / 0.65
 			for _, tv in ipairs(CollectionService:GetTagged("TV")) do
 				local tvId = tv:GetAttribute("id")
 				if tostring(tvId) == tostring(tv_id) then
@@ -321,7 +380,7 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 					local targetY = tv:IsA("BasePart") and 20.095 or 30.765
 					local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
 					local startTime = tick()
-					local duration = 1
+					local duration = soundDuration
 					local conn
 					conn = RunService.Heartbeat:Connect(function()
 						local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
@@ -336,14 +395,45 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 					end)
 				end
 			end
+			-- Chain logic: find both Chain-tagged parts with matching id
+			local matchingChains = {}
+			for _, chain in ipairs(CollectionService:GetTagged("Chain")) do
+				local chainId = chain:GetAttribute("id")
+				if tostring(chainId) == tostring(tv_id) then
+					table.insert(matchingChains, chain)
+				end
+			end
+			if #matchingChains == 2 then
+				local TweenService = game:GetService("TweenService")
+				local function tweenToClosed(chainNameLow, closedName)
+					for _, chain in ipairs(matchingChains) do
+						if string.find(chain.Name, chainNameLow) then
+							local parent = chain.Parent
+							if parent then
+								for _, sibling in ipairs(parent:GetChildren()) do
+									if sibling:IsA("BasePart") and string.find(sibling.Name, closedName) then
+										local tween = TweenService:Create(chain, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = sibling.CFrame})
+										tween:Play()
+										break
+									end
+								end
+							end
+						end
+					end
+				end
+				tweenToClosed("HeadChainR_low", "HeadChainR_closed")
+				tweenToClosed("HeadChainL_low", "HeadChainL_closed")
+			end
 		end
-		self.remove_player(self, player)
+		-- Reset player state instead of LoadCharacter
+		reset_player_state(player)
+		--self.remove_player(self, player)
 		
 		server.CoinsAwarded.Fire(player, player, 10, "died")
 		
 		local alive_players = self:get_alive_players()
 		
-		if #alive_players <= 1 and self.state == "IN_PROGRESS" then
+		if #alive_players <= 1 and self:get_state() == "IN_PROGRESS" then
 			self:set_state("ENDING")
 			
 			print("game is ending")
@@ -355,7 +445,7 @@ function match_object.eliminate_player(self: MatchObject, player: Player): ()
 				server.CoinsAwarded.Fire(player, player, 50, "won")
 				
 			end
-		elseif #alive_players == 0 and self.state == "IN_PROGRESS" then
+		elseif #alive_players == 0 and self:get_state() == "IN_PROGRESS" then
 			self:set_state("ENDING")
 			print("game is ending: no players left alive")
 		end

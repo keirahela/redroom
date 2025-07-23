@@ -119,6 +119,9 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		WinnerChosePlayer = table.freeze({
+			Fire = noop
+		}),
 		WakeUpTransition = table.freeze({
 			On = noop
 		}),
@@ -209,36 +212,36 @@ assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
 local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0") }
 assert(unreliable[1]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_0 to be an UnreliableRemoteEvent")
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine")
 export type NotificationData = ({
 	["type"]: ("Info" | "Warning" | "Success" | "Error"),
 	["title"]: (string),
 	["message"]: (string),
 	["duration"]: (number),
 })
-export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
-export type MinigameData = ({
-	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
-	["duration"]: (number),
-	["instructions"]: (string),
-	["parameters"]: ((unknown)),
-})
-export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
-export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser")
 export type CountdownData = ({
 	["duration"]: (number),
 	["title"]: (string),
 	["description"]: (string),
 })
+export type MinigameData = ({
+	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
+	["duration"]: (number),
+	["instructions"]: (string),
+	["parameters"]: ((unknown)),
+})
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
+export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
+export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
 	["value"]: (number),
 })
+export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -672,6 +675,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				value["type"] = "React"
 			elseif bit32.btest(bool_7, 0b0000000000100000) then
 				value["type"] = "BombGuesser"
+			elseif bit32.btest(bool_7, 0b0000000001000000) then
+				value["type"] = "DragTheLine"
 			end
 			value["duration"] = buffer.readu8(incoming_buff, read(1))
 			assert(value["duration"] >= 1, "value is less than 1!")
@@ -681,7 +686,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			assert(len_15 <= 2000, "value is more than 2000!")
 			value["instructions"] = buffer.readstring(incoming_buff, read(len_15), len_15)
 			assert(utf8.len(value["instructions"]) ~= nil, "value is not valid utf-8")
-			if bit32.btest(bool_7, 0b0000000001000000) then
+			if bit32.btest(bool_7, 0b0000000010000000) then
 				incoming_ipos = incoming_ipos + 1
 				value["parameters"] = incoming_inst[incoming_ipos]
 			else
@@ -826,6 +831,14 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
+	WinnerChosePlayer = {
+		Fire = function(chosenUserId: (number))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, chosenUserId)
+		end,
+	},
 	WakeUpTransition = {
 		On = function(Callback: (phase: (string), duration: (number)) -> ())
 			table.insert(reliable_events[16], Callback)
@@ -853,7 +866,7 @@ local returns = {
 	UIInteraction = {
 		Fire = function(ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), action: (string), data: ((unknown)))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			local bool_10 = 0
 			local bool_10_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -913,7 +926,7 @@ local returns = {
 	SpectateRequest = {
 		Fire = function(Value: ((Player)?))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_11 = 0
 			local bool_11_pos_1 = alloc(1)
 			if Value ~= nil then
@@ -980,7 +993,7 @@ local returns = {
 	SettingsChanged = {
 		Fire = function(setting_name: (string), value: ((unknown)))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_12 = 0
 			local bool_12_pos_1 = alloc(1)
 			local len_20 = #setting_name
@@ -1041,7 +1054,7 @@ local returns = {
 	PurchaseCrate = {
 		Fire = function(Value: (string))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			local len_21 = #Value
 			assert(len_21 >= 1, "value is less than 1!")
 			assert(len_21 <= 80, "value is more than 80!")
@@ -1055,7 +1068,7 @@ local returns = {
 	PopupResponse = {
 		Fire = function(popup_id: (string), button_index: (number))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_22 = #popup_id
 			assert(len_22 >= 1, "value is less than 1!")
 			assert(len_22 <= 80, "value is more than 80!")
@@ -1123,7 +1136,7 @@ local returns = {
 	},
 	MinigameStarted = {
 		On = function(Callback: (Value: ({
-			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser"),
+			["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 			["duration"]: (number),
 			["instructions"]: (string),
 			["parameters"]: ((unknown)),

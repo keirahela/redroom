@@ -24,6 +24,8 @@ local function player_added(player: Player)
 		
 		if player:IsDescendantOf(Players) == true then
 			Profiles[player] = profile
+
+			print(profile.Data)
 		else
 			profile:Release()
 		end
