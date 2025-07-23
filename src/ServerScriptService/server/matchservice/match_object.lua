@@ -55,7 +55,7 @@ function match_object.new(): MatchObject
 	self.minigames_handler = minigames.new()
 	self.round_number = 0
 	self.max_players = 6
-	self.min_players = 2
+	self.min_players = 1
 	self.last_minigame_winner = nil
 	
 	return self :: any

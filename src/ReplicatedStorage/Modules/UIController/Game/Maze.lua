@@ -24,6 +24,16 @@ return function(ui)
         local secs = math.floor(seconds % 60)
         return string.format("%02d:%02d", mins, secs)
     end
+    local function stopTimer()
+        if gameTimer then
+            if typeof(gameTimer) == "RBXScriptConnection" then
+                gameTimer:Disconnect()
+            else
+                pcall(function() task.cancel(gameTimer) end)
+            end
+            gameTimer = nil
+        end
+    end
     local function cleanup()
         gameActive = false
         mouseInStart = false
@@ -57,31 +67,18 @@ return function(ui)
             setupDangerZone(danger)
         end
         if ui and ui.Time then
-            print("[Maze] Accessing ui.Time", ui.Time)
             ui.Time.Text = formatTime(10)
-        end
-    end
-    local function stopTimer()
-        if gameTimer then
-            if typeof(gameTimer) == "RBXScriptConnection" then
-                gameTimer:Disconnect()
-            else
-                pcall(function() task.cancel(gameTimer) end)
-            end
-            gameTimer = nil
         end
     end
     local function startTimer(ui, onTimeout)
         stopTimer()
         local timeLeft = 10
         if ui and ui.Time then
-            print("[Maze] Accessing ui.Time", ui.Time)
             ui.Time.Text = formatTime(timeLeft)
         end
         gameTimer = RunService.Heartbeat:Connect(function(dt)
             timeLeft = timeLeft - dt
             if ui and ui.Time then
-                print("[Maze] Accessing ui.Time", ui.Time)
                 ui.Time.Text = formatTime(math.max(0, timeLeft))
             end
             if timeLeft <= 0 then
@@ -96,7 +93,6 @@ return function(ui)
         gameActive = false
         stopTimer()
         if ui and ui.Time then
-            print("[Maze] Accessing ui.Time", ui.Time)
             ui.Time.Text = ""
         end
         for _, child in pairs(ui:GetChildren()) do
@@ -118,7 +114,6 @@ return function(ui)
         gameActive = false
         stopTimer()
         if ui and ui.Time then
-            print("[Maze] Accessing ui.Time", ui.Time)
             ui.Time.Text = ""
         end
         local endZone = ui:FindFirstChild("End")

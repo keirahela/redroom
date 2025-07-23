@@ -8,6 +8,7 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local SignalPlus = require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("SignalPlus"))
 local WinnerChosePlayer = SignalPlus()
+local Notification = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Notification"))
 
 local match_service = {}
 match_service.__index = match_service
@@ -246,7 +247,26 @@ minigame_signal:Connect(function()
 		end
 	end
 	if winner then
+		Notification.ShowAll(winner.Name .. " won the minigame, choosing player")
 		server.UpdateUI.Fire(winner, "Game", "StartWinnerChoosing", { players = others })
+		-- Replicate timer to all non-winners
+		local chooseTime = 20
+		local chose = false
+		local conn
+		conn = WinnerChosePlayer:Connect(function()
+			chose = true
+			if conn then conn:Disconnect() end
+		end)
+		for t = chooseTime, 1, -1 do
+			Notification.ShowAll(winner.Name .. " is choosing player: " .. t)
+			if chose then break end
+			task.wait(1)
+		end
+		Notification.CloseAll()
+		if not chose then
+			-- Timeout: force round to continue
+			WinnerChosePlayer:Fire()
+		end
 	end
 	print("[MatchService] Waiting for winner to choose a player...")
 	WinnerChosePlayer:Wait()
@@ -257,6 +277,37 @@ minigame_signal:Connect(function()
 		cleanup_all_minigames_and_players(match)
 		return
 	end
+	-- Lower all TVs before starting the next minigame
+	server.UpdateUI.FireAll("Game", "PlaySFX", { name = "MonitorsBeingLifted" })
+	local lowerSoundDuration = 2.926 / 0.65
+	for _, tv in ipairs(CollectionService:GetTagged("TV")) do
+		local startCFrame
+		if tv:IsA("BasePart") then
+			startCFrame = tv.CFrame
+		elseif tv:IsA("Model") then
+			startCFrame = tv:GetPivot()
+		else
+			continue
+		end
+		local startPos = startCFrame.Position
+		local targetY = tv:IsA("BasePart") and 9.69 or 20.36
+		local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
+		local startTime = tick()
+		local duration = lowerSoundDuration
+		local conn
+		conn = RunService.Heartbeat:Connect(function()
+			local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+			if tv:IsA("BasePart") then
+				tv.CFrame = startCFrame:Lerp(endCFrame, alpha)
+			elseif tv:IsA("Model") then
+				tv:PivotTo(startCFrame:Lerp(endCFrame, alpha))
+			end
+			if alpha >= 1 then
+				conn:Disconnect()
+			end
+		end)
+	end
+	task.wait(lowerSoundDuration)
 	if match.minigames_handler and match.minigames_handler.switch_to_next then
 		match.minigames_handler:switch_to_next(match)
 	else

@@ -46,50 +46,101 @@ return function(ui)
     ui.Encourage.Visible = false
     if ui.Countdown then ui.Countdown.Visible = false end
     if ui.Time then ui.Time.Visible = true; ui.Time.Text = formatTime(60) end
-    local function updateRatUI()
+    local function resetRatRaceUI()
         for i, btn in ipairs(rats) do
-            if takenRats[i] then
+            btn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            btn.BackgroundTransparency = 1
+            btn.Active = true
+            btn.ImageTransparency = 0
+        end
+        selectedRat = nil
+        ui.YoureRatLabel.Text = "PICK YOUR RAT"
+        ui.Encourage.Active = false
+        ui.Encourage.Visible = false
+        ui.Encourage.Text = "Encourage Rat"
+        if ui.Countdown then ui.Countdown.Visible = false end
+        if ui.Time then ui.Time.Visible = true; ui.Time.Text = formatTime(60) end
+    end
+    local function updateRatUI()
+        print("[RatRace][CLIENT] updateRatUI called. takenRats:", takenRats)
+        local player = Players.LocalPlayer
+        local found = false
+        for i, btn in ipairs(rats) do
+            local key = tostring(i)
+            if takenRats[key] then
+                print("[RatRace][CLIENT] Disabling rat", i)
                 btn.BackgroundColor3 = Color3.fromRGB(255,0,0)
                 btn.BackgroundTransparency = 0.7
                 btn.Active = false
+                btn.ImageTransparency = 0.5 -- Always dim taken rats
+                if selectedRat == i then found = true end
             else
                 btn.BackgroundColor3 = Color3.fromRGB(255,255,255)
-                btn.BackgroundTransparency = 0
+                btn.BackgroundTransparency = 1
                 btn.Active = true
+                btn.ImageTransparency = 0.5 -- Default for available rats, will be set to 0 for selected
             end
+        end
+        -- If our selectedRat is no longer available, clear selection and re-enable UI
+        if selectedRat and not found then
+            print("[RatRace][CLIENT] Our selected rat is no longer available. Clearing selection.")
+            selectedRat = nil
+            resetRatRaceUI()
+        end
+        -- Only highlight the local player's rat
+        if selectedRat then
+            for j, btn in ipairs(rats) do
+                if j == selectedRat then
+                    btn.ImageTransparency = 0
+                else
+                    btn.ImageTransparency = 0.5
+                end
+            end
+            ui.YoureRatLabel.Text = "YOUR RAT: " .. ordinal(selectedRat)
+            ui.Encourage.Active = true
+            ui.Encourage.Visible = true
+            ui.Encourage.BackgroundTransparency = 0.2
         end
     end
     maid:GiveTask(client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "RatRaceTakenRats" and type(value) == "table" then
+            print("[RatRace][CLIENT] Received takenRats from server:", value)
             takenRats = value
+            -- If we have no selection but one of the rats is taken by us, set selectedRat and update UI
+            if not selectedRat then
+                local player = Players.LocalPlayer
+                for i, btn in ipairs(rats) do
+                    local key = tostring(i)
+                    if takenRats[key] and btn.Active == false then
+                        selectedRat = i
+                        break
+                    end
+                end
+            end
             updateRatUI()
+            -- Only lock in selection if server confirms it
+            if selectedRat and not takenRats[tostring(selectedRat)] then
+                print("[RatRace][CLIENT] Server did not confirm our selection. Clearing selectedRat.")
+                selectedRat = nil
+            end
         end
     end))
     for i, ratBtn in ipairs(rats) do
         ratBtn.Active = true
         ratBtn.ImageTransparency = 0
         maid:GiveTask(ratBtn.MouseEnter:Connect(function()
+            if takenRats[tostring(i)] then return end -- Do not change appearance on hover if taken
             ratBtn.BackgroundTransparency = 0.7
             SoundManager:PlaySFX("BeepSound")
         end))
         maid:GiveTask(ratBtn.MouseLeave:Connect(function()
+            if takenRats[tostring(i)] then return end -- Do not change appearance on hover if taken
             ratBtn.BackgroundTransparency = 1
         end))
         maid:GiveTask(ratBtn.MouseButton1Click:Connect(function()
-            if selectedRat or raceStarted or takenRats[i] then return end
-            selectedRat = i
-            ui.YoureRatLabel.Text = "YOUR RAT: " .. ordinal(i)
-            for j, btn in ipairs(rats) do
-                btn.Active = false
-                if j ~= i then
-                    btn.ImageTransparency = 0.5
-                else
-                    btn.ImageTransparency = 0
-                end
-            end
-            ui.Encourage.Active = true
-            ui.Encourage.Visible = true
-            ui.Encourage.BackgroundTransparency = 0.2
+            print("[RatRace][CLIENT] Player selected rat", i)
+            if selectedRat or raceStarted or takenRats[tostring(i)] then return end
+            -- Only send request, do not lock in selection yet
             client.MinigameInput.Fire("rat_select", {zone = "rat" .. i})
             SoundManager:PlaySFX("BeepSound")
         end))
@@ -134,20 +185,8 @@ return function(ui)
             ui.Time.Text = formatTime(value)
         end
         if ui_type == "Game" and element == "RatRaceResult" and value then
-            if value.result == "advance" then
-                SoundManager:PlaySFX("CardFlipping")
-                cleanup()
-            elseif value.result == "fail" or value.result == "timeout" then
-                if ui.YoureRatLabel then ui.YoureRatLabel.Text = "PICK YOUR RAT" end
-                selectedRat = nil
-                for j, btn in ipairs(rats) do
-                    btn.Active = true
-                    btn.ImageTransparency = 0
-                end
-                ui.Encourage.Active = false
-                ui.Encourage.Visible = false
-                ui.Encourage.Text = "Encourage Rat"
-                SoundManager:PlaySFX("Beep")
+            if value.result == "advance" or value.result == "fail" or value.result == "timeout" then
+                resetRatRaceUI()
             end
         end
     end)

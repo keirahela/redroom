@@ -41,7 +41,6 @@ return function(ui)
     -- Timer logic
     local timeLeft = 60
     if ui and ui.Time then
-        print("[HigherLower] Accessing ui.Time", ui.Time)
         ui.Time.Text = string.format("%02d:%02d", math.floor(timeLeft/60), timeLeft%60)
     end
     local timerThread = task.spawn(function()
@@ -49,7 +48,6 @@ return function(ui)
             task.wait(1)
             timeLeft = timeLeft - 1
             if ui and ui.Time then
-                print("[HigherLower] Accessing ui.Time", ui.Time)
                 ui.Time.Text = string.format("%02d:%02d", math.floor(timeLeft/60), timeLeft%60)
             end
         end

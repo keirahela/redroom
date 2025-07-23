@@ -71,7 +71,7 @@ return function(ui)
                 picked = true
                 setButtonsEnabled(false)
                 setArrows(i)
-                client.MinigameInput.Fire("bomb_pick", { zone = "bomb" .. tostring(i) })
+                client.MinigameInput.Fire("guess", { zone = "bomb" .. tostring(i) })
                 SoundManager:PlaySFX("BeepSound")
             end))
         end
@@ -85,24 +85,53 @@ return function(ui)
             if ui["Pick One"] then ui["Pick One"].Text = "Pick The Dud :]" end
         end
     end)
+    local function resetBombGuesserUI()
+        picked = false
+        setButtonsEnabled(true)
+        setArrows(nil)
+        if ui["Pick One"] then ui["Pick One"].Text = "Pick The Dud :]" end
+        for i, btn in ipairs(bombButtons) do
+            if btn then
+                btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            end
+        end
+    end
     resultConn = client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "BombGuesserResult" then
-            setButtonsEnabled(false)
             if value and value.result == "advance" then
+                setButtonsEnabled(false)
                 if ui["Pick One"] then ui["Pick One"].Text = "You survived!" end
                 SoundManager:PlaySFX("CardFlipping")
-            elseif value and value.result == "eliminate" then
-                if ui["Pick One"] then ui["Pick One"].Text = "You exploded!" end
-                SoundManager:PlaySFX("Beep")
-            end
-            for i, btn in ipairs(bombButtons) do
-                if btn then
-                    if value and value.dud == i then
-                        btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                    else
-                        btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                for i, btn in ipairs(bombButtons) do
+                    if btn then
+                        if value and value.dud == i then
+                            btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                        else
+                            btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                        end
                     end
                 end
+                task.wait(1)
+                -- Do NOT reset UI after a correct guess
+            elseif value and value.result == "fail" then
+                setButtonsEnabled(false)
+                picked = true
+                if ui["Pick One"] then ui["Pick One"].Text = "Try again!" end
+                SoundManager:PlaySFX("Beep")
+                for i, btn in ipairs(bombButtons) do
+                    if btn then
+                        if value and value.dud == i then
+                            btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                        else
+                            btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                        end
+                    end
+                end
+                task.spawn(function()
+                    task.wait(2)
+                    resetBombGuesserUI()
+                end)
+                return
             end
         end
     end)
@@ -117,6 +146,7 @@ return function(ui)
     maid:GiveTask(client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "EndGame" then
             cleanup()
+            resetBombGuesserUI()
             if ui then ui.Visible = false end
         end
     end))

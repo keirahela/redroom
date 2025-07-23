@@ -75,6 +75,17 @@ return function(ui)
         SoundManager:PlaySFX("BeepSound")
         cooldown()
     end
+    local function resetBlackjack()
+        if ui.TextLabel then ui.TextLabel.Text = "TEST YOUR LUCK AND GET 21!" end
+        if ui.CardsetPlayer and ui.CardsetPlayer.CardList and ui.CardsetPlayer.CardList.ScrollingFrame then
+            clearCards(ui.CardsetPlayer.CardList.ScrollingFrame)
+        end
+        if ui.CardsetAI and ui.CardsetAI.ScrollingFrame then
+            clearCards(ui.CardsetAI.ScrollingFrame)
+        end
+        if hitButton then hitButton.Active = true end
+        if standButton then standButton.Active = true end
+    end
     local function cleanup()
         ui.Visible = false
         maid:DoCleaning()
@@ -83,10 +94,7 @@ return function(ui)
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
         end
-        local playerFrame = ui.CardsetPlayer.CardList.ScrollingFrame
-        local aiFrame = ui.CardsetAI.ScrollingFrame
-        if playerFrame then clearCards(playerFrame) end
-        if aiFrame then clearCards(aiFrame) end
+        resetBlackjack()
     end
     if hitButton then maid:GiveTask(hitButton.MouseButton1Click:Connect(onHit)) end
     if standButton then maid:GiveTask(standButton.MouseButton1Click:Connect(onStand)) end
@@ -113,6 +121,12 @@ return function(ui)
             if value and value.result then
                 showResultMessage(value.result)
                 setButtonsEnabled(false)
+                if value.result == "eliminate" or value.result == "fail" then
+                    -- Reset and start a new round for this player
+                    task.wait(1)
+                    resetBlackjack()
+                    -- Optionally, send a message to the server to start a new round for this player
+                end
             end
         end
     end)

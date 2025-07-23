@@ -53,10 +53,12 @@ function higherlower.start(match)
     if inputConn then inputConn(); inputConn = nil end
     inputConn = server.MinigameInput.SetCallback(function(player, input_type, input_data)
         if ended then return end
+        if not (match_ref and match_ref.is_player_alive and match_ref:is_player_alive(player)) then return end
         local state = player_state[player]
         if not state or state.done then return end
         if input_type == "guess" then
-            if input_data == state.answer then
+            local guess = input_data and input_data.zone
+            if guess == state.answer then
                 state.done = true
                 server.UpdateUI.Fire(player, "Game", "HigherLowerResult", {result = "advance"})
                 if match_ref and not match_ref.last_minigame_winner then

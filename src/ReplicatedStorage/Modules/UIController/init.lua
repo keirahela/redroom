@@ -275,6 +275,10 @@ function ui.new(): UIController
     -- Event: Update UI (play SFX, winner choosing, etc.)
     client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "PlaySFX" and value and value.name then
+            -- CLEANUP ALL MINIGAMES when TVs go up
+            if value.name == "MonitorsBeingLifted" and self.Game and self.Game.force_cleanup_all_games then
+                self.Game:force_cleanup_all_games()
+            end
             local sfxFolder = game:GetService("SoundService"):FindFirstChild("SoundEffects")
             if sfxFolder then
                 local soundTemplate = sfxFolder:FindFirstChild(value.name)

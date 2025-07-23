@@ -25,6 +25,8 @@ function maze.start(match)
     local ended = false
     zap_connection = server.MinigameInput.SetCallback(function(player, input_type, data)
         if ended then return end
+        local pdata = current_match and current_match.get_player_data and current_match:get_player_data(player)
+        if not (pdata and pdata.is_alive) then return end
         if input_type == "ended" then
             if finished_players[player] then return end
             finished_players[player] = true

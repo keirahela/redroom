@@ -51,6 +51,7 @@ function blackjack.start(match)
     end
     inputConn = server.MinigameInput.SetCallback(function(player, input_type, input_data)
         if ended then return end
+        if not (match_ref and match_ref.is_player_alive and match_ref:is_player_alive(player)) then return end
         local state = player_state[player]
         if not state or state.done then return end
         if input_type == "blackjack_hit" then

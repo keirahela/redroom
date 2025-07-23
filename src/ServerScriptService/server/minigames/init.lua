@@ -23,22 +23,22 @@ export type MinigameModule = {
 }
 
 local games = {
+    RatRace,
     DragTheLine,
     Maze,
     HigherLower,
     Blackjack,
     BombGuesser,
-    RatRace,
     React,
 }
 
 local game_names = {
+    "RatRace",
     "DragTheLine",
     "Maze",
     "HigherLower",
     "Blackjack",
     "BombGuesser",
-    "RatRace",
     "React",
 }
 

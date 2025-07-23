@@ -49,74 +49,73 @@ function react.start(match)
         for _, pdata in ipairs(getAlivePlayers()) do
             server.UpdateUI.Fire(pdata.player, "Game", "ReactCountdown", "")
         end
-        -- Start overall timer
         running = true
-        phase = "wait"
-        local timeLeft = 60
-        timer_thread = coroutine.create(function()
-            while timeLeft > 0 and running do
-                for _, pdata in ipairs(getAlivePlayers()) do
-                    server.UpdateUI.Fire(pdata.player, "Game", "ReactTime", timeLeft)
-                end
-                task.wait(1)
-                timeLeft = timeLeft - 1
-            end
-            if running then
-                -- Time's up, fail all who haven't finished
+        -- Start the main loop for all players who haven't succeeded
+        local function runReactCycle()
+            while running do
+                local stillPlaying = {}
                 for _, pdata in ipairs(getAlivePlayers()) do
                     if not player_results[pdata.player] then
-                        player_results[pdata.player] = "timeout"
-                        server.UpdateUI.Fire(pdata.player, "Game", "ReactResult", { result = "timeout" })
+                        table.insert(stillPlaying, pdata.player)
                     end
                 end
+                if #stillPlaying == 0 then break end
+                -- Send 'wait' phase
+                for _, player in ipairs(stillPlaying) do
+                    server.UpdateUI.Fire(player, "Game", "ReactPhase", "wait")
+                end
+                local waitTime = math.random(15, 40) / 10 -- 1.5s to 4s
+                task.wait(waitTime)
+                -- Send 'click' phase
+                for _, player in ipairs(stillPlaying) do
+                    server.UpdateUI.Fire(player, "Game", "ReactPhase", "click")
+                end
+                local clickDeadline = os.clock() + 3
+                local clicked = {}
+                while os.clock() < clickDeadline and running do
+                    for _, player in ipairs(stillPlaying) do
+                        if player_results[player] == "advance" then
+                            clicked[player] = true
+                        end
+                    end
+                    if next(clicked) then break end
+                    task.wait(0.05)
+                end
+                -- Set phase to done for all still playing
+                for _, player in ipairs(stillPlaying) do
+                    server.UpdateUI.Fire(player, "Game", "ReactPhase", "done")
+                end
+                -- For those who didn't click, send fail and let them try again
+                for _, player in ipairs(stillPlaying) do
+                    if not player_results[player] then
+                        server.UpdateUI.Fire(player, "Game", "ReactResult", { result = "fail" })
+                    end
+                end
+                -- If any player succeeded, end the minigame
+                if next(clicked) then
+                    break
+                end
+            end
+        end
+        runReactCycle()
+        -- End the minigame if anyone succeeded
+        for _, pdata in ipairs(getAlivePlayers()) do
+            if player_results[pdata.player] == "advance" then
                 task.wait(2)
                 minigame_signal:Fire()
-            end
-        end)
-        coroutine.resume(timer_thread)
-        -- Random wait before "CLICK!"
-        local waitTime = math.random(15, 40) / 10 -- 1.5s to 4s
-        for _, pdata in ipairs(getAlivePlayers()) do
-            server.UpdateUI.Fire(pdata.player, "Game", "ReactPhase", "wait")
-        end
-        task.wait(waitTime)
-        phase = "click"
-        local clickDeadline = os.clock() + 3
-        for _, pdata in ipairs(getAlivePlayers()) do
-            server.UpdateUI.Fire(pdata.player, "Game", "ReactPhase", "click")
-        end
-        -- 3s to click
-        while os.clock() < clickDeadline and running do
-            if #player_clicked >= #getAlivePlayers() then break end
-            task.wait(0.05)
-        end
-        phase = "done"
-        for _, pdata in ipairs(getAlivePlayers()) do
-            server.UpdateUI.Fire(pdata.player, "Game", "ReactPhase", "done")
-        end
-        -- Instead of eliminating or ending, just reset players who didn't react
-        for _, pdata in ipairs(getAlivePlayers()) do
-            if not player_results[pdata.player] then
-                player_results[pdata.player] = nil -- reset state
-                server.UpdateUI.Fire(pdata.player, "Game", "ReactResult", { result = "fail" })
+                break
             end
         end
-        -- Do NOT call minigame_signal:Fire() here; only end when someone reacts
     end)
     coroutine.resume(countdown_thread)
     -- Listen for player input
     inputConn = server.MinigameInput.SetCallback(function(player, input_type, input_data)
-        local state = player_results[player]
-        if not state or state.done then return end
+        if not (match_ref and match_ref.is_player_alive and match_ref:is_player_alive(player)) then return end
+        if player_results[player] == "advance" then return end
         if input_type == "react" then
-            state.done = true
+            player_results[player] = "advance"
             server.UpdateUI.Fire(player, "Game", "ReactResult", {result = "advance"})
-            if match_ref and not match_ref.last_minigame_winner then
-                match_ref.last_minigame_winner = player
-                minigame_signal:Fire()
-            end
         elseif input_type == "fail" then
-            state.done = true
             server.UpdateUI.Fire(player, "Game", "ReactResult", {result = "fail"})
             return
         end

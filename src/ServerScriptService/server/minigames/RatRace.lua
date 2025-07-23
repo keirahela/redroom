@@ -70,15 +70,19 @@ function ratrace.start(match)
     if ratrace._inputConn then ratrace._inputConn() end
     ratrace._inputConn = server.MinigameInput.SetCallback(function(player, input_type, input_data)
         if running then return end
+        if not (match_ref and match_ref.is_player_alive and match_ref:is_player_alive(player)) then return end
         if not player_choices[player] and input_type == "rat_select" and input_data and input_data.zone then
             local ratIdx = tonumber(input_data.zone:match("rat(%d)"))
+            print("[RatRace][SERVER] Player", player.Name, "selected rat", ratIdx)
             if ratIdx and ratIdx >= 1 and ratIdx <= RAT_COUNT then
                 for _, chosen in pairs(player_choices) do
                     if chosen == ratIdx then return end
                 end
                 player_choices[player] = ratIdx
+                print("[RatRace][SERVER] player_choices:", player_choices)
                 server.UpdateUI.FireAll("Game", "RatRaceTakenRats", getTakenRats())
                 if allPlayersSelected() and not running then
+                    print("[RatRace][SERVER] All players selected. Starting countdown.")
                     running = true
                     countdown_thread = coroutine.create(function()
                         for n = 3, 1, -1 do
@@ -90,6 +94,7 @@ function ratrace.start(match)
                         for _, pdata in ipairs(getAlivePlayers()) do
                             server.UpdateUI.Fire(pdata.player, "Game", "Countdown", "")
                         end
+                        print("[RatRace][SERVER] Countdown finished. Starting race.")
                         startRace()
                     end)
                     coroutine.resume(countdown_thread)
@@ -114,12 +119,12 @@ function startRace()
     if update_thread then coroutine.close(update_thread) end
     update_thread = coroutine.create(function()
         while true do
-            local winner = nil
+            local winnerRat = nil
             for i = 1, RAT_COUNT do
                 local move = math.random() * (RAT_MOVE_MAX - RAT_MOVE_MIN) + RAT_MOVE_MIN
                 rat_positions[i] = math.min(rat_positions[i] + move, TRACK_LENGTH)
-                if rat_positions[i] >= TRACK_LENGTH and not winner then
-                    winner = i
+                if rat_positions[i] >= TRACK_LENGTH and not winnerRat then
+                    winnerRat = i
                 end
             end
             local positions = {}
@@ -127,34 +132,51 @@ function startRace()
             for _, pdata in ipairs(getAlivePlayers()) do
                 server.UpdateUI.Fire(pdata.player, "Game", "RatRacePositions", positions)
             end
-            if winner then
-                local lastPos = math.huge
-                local lastRats = {}
-                for i = 1, RAT_COUNT do
-                    if rat_positions[i] < lastPos then lastPos = rat_positions[i] end
-                end
-                for i = 1, RAT_COUNT do
-                    if math.abs(rat_positions[i] - lastPos) < 1e-4 then table.insert(lastRats, i) end
-                end
-                local winner_found = false
+            if winnerRat then
+                print("[RatRace][SERVER] Race finished. Winning rat:", winnerRat)
+                -- Find all players who picked the winning rat
+                local winners = {}
                 for player, ratIdx in pairs(player_choices) do
-                    if ratIdx and not winner_found and not table.find(lastRats, ratIdx) then
-                        winner_found = true
-                        if match_ref and not match_ref.last_minigame_winner then
-                            match_ref.last_minigame_winner = player
-                            minigame_signal:Fire()
-                        end
+                    if ratIdx == winnerRat then
+                        table.insert(winners, player)
                     end
                 end
+                if #winners == 0 then
+                    -- No one picked the winning rat, find the player whose rat is furthest ahead
+                    local furthest = -1
+                    local furthestPlayers = {}
+                    for player, ratIdx in pairs(player_choices) do
+                        if ratIdx and rat_positions[ratIdx] then
+                            if rat_positions[ratIdx] > furthest then
+                                furthest = rat_positions[ratIdx]
+                                furthestPlayers = {player}
+                            elseif rat_positions[ratIdx] == furthest then
+                                table.insert(furthestPlayers, player)
+                            end
+                        end
+                    end
+                    if #furthestPlayers > 0 then
+                        winners = furthestPlayers
+                    end
+                end
+                -- If still tied, pick randomly
+                local winnerPlayer = nil
+                if #winners > 0 then
+                    winnerPlayer = winners[math.random(1, #winners)]
+                end
+                print("[RatRace][SERVER] Winner(s):", winners, "Chosen winner:", winnerPlayer)
+                if winnerPlayer and match_ref and not match_ref.last_minigame_winner then
+                    match_ref.last_minigame_winner = winnerPlayer
+                end
                 for player, ratIdx in pairs(player_choices) do
-                    if ratIdx and table.find(lastRats, ratIdx) then
-                        server.UpdateUI.Fire(player, "Game", "RatRaceResult", { result = "fail", rat = ratIdx })
-                    else
+                    if ratIdx == winnerRat then
                         server.UpdateUI.Fire(player, "Game", "RatRaceResult", { result = "advance", rat = ratIdx })
+                    else
+                        server.UpdateUI.Fire(player, "Game", "RatRaceResult", { result = "fail", rat = ratIdx })
                     end
                 end
                 task.wait(2)
-                minigame_signal:Fire()
+                minigame_signal:Fire() -- Only call once
                 break
             end
             task.wait(TICK_RATE)

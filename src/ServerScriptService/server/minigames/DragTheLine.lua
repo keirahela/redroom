@@ -16,6 +16,7 @@ function dragtheline.start(match)
     current_match = match
     zap_connection = server.MinigameInput.SetCallback(function(player, input_type, data)
         print("[DragTheLine][SERVER] MinigameInput callback triggered:", player, input_type)
+        if not (current_match and current_match.is_player_alive and current_match:is_player_alive(player)) then return end
         if input_type == "ended" then
             if finished_players[player] then return end
             finished_players[player] = true
@@ -23,7 +24,17 @@ function dragtheline.start(match)
             if not current_match.last_minigame_winner then
                 print("[DragTheLine][SERVER] Player won:", player)
                 current_match.last_minigame_winner = player
+                server.UpdateUI.Fire(player, "Game", "DragTheLineResult", { result = "advance" })
+                -- All other players see fail
+                for other, _ in pairs(finished_players) do
+                    if other ~= player then
+                        server.UpdateUI.Fire(other, "Game", "DragTheLineResult", { result = "fail" })
+                    end
+                end
                 minigame_signal:Fire()
+            else
+                -- Already have a winner, this player sees fail
+                server.UpdateUI.Fire(player, "Game", "DragTheLineResult", { result = "fail" })
             end
         end
         -- Remove all elimination logic for any other input_type

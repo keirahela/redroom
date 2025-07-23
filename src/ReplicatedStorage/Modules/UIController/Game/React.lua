@@ -23,7 +23,7 @@ return function(ui)
     local reactPhase = false
     local finished = false
     if ui.Countdown then ui.Countdown.Visible = false end
-    if ui.Time then ui.Time.Visible = true; ui.Time.Text = formatTime(60) end
+    if ui.Time then ui.Time.Visible = false end -- Remove timer UI
     if ui.TextButton then ui.TextButton.Visible = false end
     -- Timer and countdown threads
     local timerThread, countdownThread
@@ -50,9 +50,13 @@ return function(ui)
             end))
         elseif result == "fail" then
             if ui.TextInfo then ui.TextInfo.Text = "Try again!" end
-            if ui.TextButton then ui.TextButton.Visible = false end
+            if ui.TextButton then
+                ui.TextButton.Visible = true
+                ui.TextButton.Text = "Wait..."
+                reactPhase = false
+            end
             SoundManager:PlaySFX("Beep")
-            finished = false
+            finished = false -- Allow clicking again
         end
     end
     -- Listen for server events
@@ -69,9 +73,10 @@ return function(ui)
                 end
             end
         end
-        if ui_type == "Game" and element == "ReactTime" and ui.Time then
-            ui.Time.Text = formatTime(value)
-        end
+        -- REMOVE TIMER: do not update ui.Time
+        -- if ui_type == "Game" and element == "ReactTime" and ui.Time then
+        --     ui.Time.Text = formatTime(value)
+        -- end
         if ui_type == "Game" and element == "ReactPhase" and ui.TextButton then
             if value == "wait" then
                 ui.TextButton.Visible = true
@@ -101,7 +106,7 @@ return function(ui)
         if finished then return end
         if not reactPhase then
             client.MinigameInput.Fire("react_fail", {zone = "fail_early"})
-            finished = true
+            -- Do not set finished=true, allow retry
             return
         end
         client.MinigameInput.Fire("react_click", {zone = "clicked"})
