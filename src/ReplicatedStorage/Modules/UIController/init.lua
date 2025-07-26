@@ -43,6 +43,21 @@ local close_frames = {
     ["WinLossScreen"] = true,
 }
 
+local function stopAllAnimations()
+    print("[DEBUG] stopAllAnimations called for", Players.LocalPlayer.Name)
+    local player = Players.LocalPlayer
+    local character = player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+    end
+end
+
 -- Closes all main game frames
 function ui.close_all(): boolean
     if current_controller then
@@ -100,39 +115,6 @@ function ui.new(): UIController
             }
         end
         self.start_timer(self, data.duration)
-        -- Show custom countdown UI only if duration > 3
-        local CountdownUI = ReplicatedStorage:FindFirstChild("UI") and ReplicatedStorage.UI:FindFirstChild("CountdownUI")
-        local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
-        if data.duration and data.duration > 3 then
-            if playerGui then
-                local old = playerGui:FindFirstChild("CountdownUI")
-                if old then old:Destroy() end
-            end
-            if CountdownUI and playerGui then
-                local countdownClone = CountdownUI:Clone()
-                countdownClone.Parent = playerGui
-                local countdownLabel = countdownClone:FindFirstChild("CountdownText", true)
-                local duration = data.duration or 5
-                local timer = duration
-                local running = true
-                task.spawn(function()
-                    while timer > 0 and running do
-                        if countdownLabel then
-                            countdownLabel.Text = "COUNTDOWN TILL EXAMINATION : " .. timer
-                        end
-                        task.wait(1)
-                        timer -= 1
-                    end
-                    if countdownLabel then
-                        countdownLabel.Text = "COUNTDOWN TILL EXAMINATION : 0"
-                    end
-                    task.wait(0.5)
-                    if countdownClone then
-                        countdownClone:Destroy()
-                    end
-                end)
-            end
-        end
     end)
 
     -- Event: Game state changed
@@ -177,6 +159,11 @@ function ui.new(): UIController
 
     -- Event: Show UI
     client.ShowUI.On(function(ui_type, iteration)
+        print("[DEBUG] ShowUI.On received:", ui_type, iteration)
+        if ui_type == "Lobby" then
+            stopAllAnimations()
+            return
+        end
         print("[CLIENT] ShowUI event received. ui_type:", ui_type, "iteration:", iteration, "Player:", Players.LocalPlayer.Name)
         last_screen_iteration = iteration or 1
         -- CLEANUP ALL MINIGAMES FIRST
@@ -195,13 +182,16 @@ function ui.new(): UIController
         }
         self.game_ui.Adornee = workspace.Screens:FindFirstChild(`Screen{iteration}`)
         self.close_all()
-        local minigameModule = require(script:FindFirstChild(ui_type))
-        if minigameModule.reset_singleton then
-            print("[CLIENT] Resetting minigame singleton for:", ui_type)
-            minigameModule.reset_singleton()
+        local minigameModuleScript = script:FindFirstChild(ui_type)
+        if minigameModuleScript then
+            local minigameModule = require(minigameModuleScript)
+            if minigameModule.reset_singleton then
+                print("[CLIENT] Resetting minigame singleton for:", ui_type)
+                minigameModule.reset_singleton()
+            end
+            print("[CLIENT] Creating new minigame controller for:", ui_type)
+            self[ui_type] = minigameModule.new(self.scope, self.game_ui)
         end
-        print("[CLIENT] Creating new minigame controller for:", ui_type)
-        self[ui_type] = minigameModule.new(self.scope, self.game_ui)
     end)
 
     -- Event: Hide UI
@@ -240,6 +230,15 @@ function ui.new(): UIController
             character:PivotTo(tpCFrame)
             character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
             character.HumanoidRootPart.Anchored = true
+            -- Stop animations if teleported to SpawnLocation
+            local spawnLocation = workspace:FindFirstChildOfClass("SpawnLocation")
+            if spawnLocation then
+                local spawnPos = spawnLocation.CFrame.Position
+                local tpPos = tpCFrame.Position
+                if (tpPos - spawnPos).Magnitude < 6 then -- within 6 studs of spawn
+                    stopAllAnimations()
+                end
+            end
         end
     end)
 
@@ -303,18 +302,7 @@ function ui.new(): UIController
             local localPlayer = Players.LocalPlayer
             local playerList = value.players
             local highlight = Highlight:Clone()
-            highlight.Enabled = true
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local CountdownUI = ReplicatedStorage:FindFirstChild("UI") and ReplicatedStorage.UI:FindFirstChild("CountdownUI")
-            local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
-            local countdownClone, countdownLabel
-            if CountdownUI and playerGui then
-                local old = playerGui:FindFirstChild("CountdownUI")
-                if old then old:Destroy() end
-                countdownClone = CountdownUI:Clone()
-                countdownClone.Parent = playerGui
-                countdownLabel = countdownClone:FindFirstChild("CountdownText", true)
-            end
+            highlight.Enabled = true 
             local function getClosestPlayer()
                 local closest, closestDist = nil, math.huge
                 for _, p in ipairs(playerList) do
@@ -349,9 +337,6 @@ function ui.new(): UIController
                 end
             end)
             for i = t, 1, -1 do
-                if countdownLabel then
-                    countdownLabel.Text = "SELECT A PLAYER : " .. i
-                end
                 if highlight.Adornee and highlight.Adornee:FindFirstChild("HumanoidRootPart") then
                     -- Optionally show a UI timer
                 end
@@ -359,9 +344,6 @@ function ui.new(): UIController
             end
             conn:Disconnect()
             highlight:Destroy()
-            if countdownClone then
-                countdownClone:Destroy()
-            end
             -- Send the selected target to the server
             if lastTarget and client.WinnerChosePlayer then
                 client.WinnerChosePlayer.Fire(lastTarget.UserId)
@@ -386,5 +368,26 @@ function ui.new(): UIController
     current_controller = self
     return self :: UIController
 end
+
+local shop_controller = require(script.ShopController)
+
+function ui.openShop()
+    return shop_controller.show_shop_ui()
+end
+
+function ui.connectShopOpener(clickDetector)
+    if not clickDetector or not clickDetector:IsA("ClickDetector") then return end
+    clickDetector.MouseClick:Connect(function()
+        ui.openShop()
+    end)
+end
+
+ui.connectShopOpener(workspace:WaitForChild("Skull").ShopOpener)
+
+--[[
+USAGE:
+local UIController = require(path.to.UIController)
+UIController.openShop()
+]]
 
 return ui

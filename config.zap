@@ -4,7 +4,7 @@ opt client_output = "./src/ReplicatedStorage/network/client.lua"
 -- Enums for game states and UI management
 type GameState = enum { "WAITING", "STARTING", "IN_PROGRESS", "FINISHED", "ENDING" }
 type MinigameType = enum { "Maze", "HigherLower", "Blackjack", "RatRace", "React", "BombGuesser", "DragTheLine" }
-type UIType = enum { "MainMenu", "Shop", "Settings", "CrateOpening", "Spectator", "Game" }
+type UIType = enum { "MainMenu", "Shop", "Settings", "CrateOpening", "Spectator", "Game", "Lobby" }
 type NotificationType = enum { "Info", "Warning", "Success", "Error" }
 
 -- Structs for complex data
@@ -55,6 +55,12 @@ event RoundStarting = {
     type: Reliable,
     call: ManyAsync,
     data: CountdownData
+}
+
+event CancelAllAnimations = {
+    from: Server,
+    type: Reliable,
+    call: ManyAsync
 }
 
 -- Server -> Client: Round ended with results

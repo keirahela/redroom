@@ -102,7 +102,6 @@ return function(ui)
             end
         end
         SoundManager:PlaySFX("Beep")
-        SoundManager:PlaySFX("NormalDeathSFX")
         client.MinigameInput.Fire("eliminated", nil)
         mouseInStart = false
         gameActive = true

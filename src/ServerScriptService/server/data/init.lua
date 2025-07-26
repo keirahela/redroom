@@ -6,10 +6,12 @@ local Packages = ReplicatedStorage.Packages
 
 local ProfileService = require(Packages.ProfileService)
 local DEFAULT_DATA = require(Modules.Data.DEFAULT_DATA)
+local receipt_handler = require(script.receipt_handler)
 
 local ProfileStore = ProfileService.GetProfileStore("PlayerData", DEFAULT_DATA)
 
 local Profiles = {}
+receipt_handler.setup(Profiles)
 
 local function player_added(player: Player)
 	local profile = ProfileStore:LoadProfileAsync("Player_" .. player.UserId)
@@ -24,7 +26,7 @@ local function player_added(player: Player)
 		
 		if player:IsDescendantOf(Players) == true then
 			Profiles[player] = profile
-
+            receipt_handler.grant_gamepasses(player)
 			print(profile.Data)
 		else
 			profile:Release()

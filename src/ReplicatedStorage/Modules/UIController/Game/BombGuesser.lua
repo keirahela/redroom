@@ -46,6 +46,12 @@ return function(ui)
         maid:DoCleaning()
         setButtonsEnabled(false)
         for _, arrow in ipairs(arrowLabels) do if arrow then arrow.Visible = false end end
+        for i, btn in ipairs(bombButtons) do
+            if btn then
+                btn.BackgroundTransparency = 1
+                btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            end
+        end
         player.CameraMinZoomDistance = 0.5
         player.CameraMaxZoomDistance = 0.5
         if player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -71,6 +77,7 @@ return function(ui)
                 picked = true
                 setButtonsEnabled(false)
                 setArrows(i)
+                print("[BombGuesser][CLIENT] Player clicked bomb", i)
                 client.MinigameInput.Fire("guess", { zone = "bomb" .. tostring(i) })
                 SoundManager:PlaySFX("BeepSound")
             end))
@@ -93,13 +100,16 @@ return function(ui)
         for i, btn in ipairs(bombButtons) do
             if btn then
                 btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                btn.BackgroundTransparency = 1
             end
         end
     end
     resultConn = client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "BombGuesserResult" then
+            print("[BombGuesser][CLIENT] Received BombGuesserResult:", value)
             if value and value.result == "advance" then
                 setButtonsEnabled(false)
+                picked = true
                 if ui["Pick One"] then ui["Pick One"].Text = "You survived!" end
                 SoundManager:PlaySFX("CardFlipping")
                 for i, btn in ipairs(bombButtons) do

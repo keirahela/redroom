@@ -28,7 +28,13 @@ return function(ui)
         card.Parent = scrollingFrame
         card.Visible = true
         local label = card:FindFirstChildWhichIsA("TextLabel")
-        if label then label.Text = tostring(value) end
+        if label then
+            if value == 0 then
+                label.Text = "?"
+            else
+                label.Text = tostring(value)
+            end
+        end
         SoundManager:PlaySFX("CardFlipping")
     end
     -- Update card visuals for player and AI
@@ -96,6 +102,12 @@ return function(ui)
         end
         resetBlackjack()
     end
+    local statusRequested = false
+    -- When UI is created, request current hand state from server (one-time)
+    if not statusRequested then
+        statusRequested = true
+        client.MinigameInput.Fire("blackjack_status")
+    end
     if hitButton then maid:GiveTask(hitButton.MouseButton1Click:Connect(onHit)) end
     if standButton then maid:GiveTask(standButton.MouseButton1Click:Connect(onStand)) end
     -- Show result message
@@ -122,11 +134,17 @@ return function(ui)
                 showResultMessage(value.result)
                 setButtonsEnabled(false)
                 if value.result == "eliminate" or value.result == "fail" then
-                    -- Reset and start a new round for this player
-                    task.wait(1)
-                    resetBlackjack()
-                    -- Optionally, send a message to the server to start a new round for this player
+                    -- Show 'You lost!' for 2 seconds, then reset
+                    if ui.TextLabel then ui.TextLabel.Text = "You lost!" end
+                    task.delay(2, function()
+                        client.MinigameInput.Fire("blackjack_replay")
+                        setButtonsEnabled(true)
+                        if ui.TextLabel then ui.TextLabel.Text = "TEST YOUR LUCK AND GET 21!" end
+                    end)
                 end
+            else
+                -- If no result, always enable buttons
+                setButtonsEnabled(true)
             end
         end
     end)

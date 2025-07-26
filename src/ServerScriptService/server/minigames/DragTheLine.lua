@@ -9,7 +9,7 @@ local eliminated_players = {}
 local current_match = nil
 local zap_connection = nil
 
-function dragtheline.start(match)
+function dragtheline.start(match, minigame_signal)
     print("[DragTheLine][SERVER] start() called for match:", match)
     finished_players = {}
     eliminated_players = {}
@@ -31,7 +31,7 @@ function dragtheline.start(match)
                         server.UpdateUI.Fire(other, "Game", "DragTheLineResult", { result = "fail" })
                     end
                 end
-                minigame_signal:Fire()
+                if minigame_signal then minigame_signal:Fire() end
             else
                 -- Already have a winner, this player sees fail
                 server.UpdateUI.Fire(player, "Game", "DragTheLineResult", { result = "fail" })

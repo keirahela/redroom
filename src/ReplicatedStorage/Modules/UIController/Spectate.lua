@@ -16,6 +16,8 @@ local maid = Maid.new()
 local spectateUI = nil
 local cameraParts = {}
 local currentCameraIndex = 1
+local originalMaxZoom = nil
+local isSpectating = false
 
 local function createSpectateUI()
 	if spectateUI then spectateUI:Destroy() end
@@ -84,8 +86,9 @@ local function updateCamera()
 	currentCameraIndex = math.clamp(currentCameraIndex, 1, #cameraParts)
 	local camPart = cameraParts[currentCameraIndex]
 	if camPart and camPart:IsA("BasePart") then
-		camera.CameraType = Enum.CameraType.Scriptable
-		camera.CFrame = camPart.CFrame
+		camera.CameraType = Enum.CameraType.Custom
+		camera.CameraSubject = camPart
+		-- Do not set camera.CFrame here
 	end
 end
 
@@ -102,17 +105,73 @@ local function refreshCameraParts()
 	end
 end
 
+local function setCameraZoom(distance)
+	localPlayer.CameraMaxZoomDistance = distance
+end
+
+local function enableCameraRotation()
+	if not isSpectating then return end
+	maid:GiveTask(game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+		if processed then return end
+		if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			lastMousePos = input.Position
+		end
+	end))
+	maid:GiveTask(game:GetService("UserInputService").InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+			lastMousePos = nil
+		end
+	end))
+	maid:GiveTask(game:GetService("UserInputService").InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			if lastMousePos then
+				local delta = input.Position - lastMousePos
+				lastMousePos = input.Position
+				if #cameraParts > 0 then
+					local camPart = cameraParts[currentCameraIndex]
+					if camPart and camPart:IsA("BasePart") then
+						local center = camPart.Position
+						local camPos = camera.CFrame.Position
+						local rel = camPos - center
+						local yaw = -delta.X * 0.005
+						local pitch = -delta.Y * 0.005
+						local newRel = CFrame.fromAxisAngle(Vector3.new(0,1,0), yaw) * CFrame.fromAxisAngle(Vector3.new(1,0,0), pitch) * rel
+						camera.CFrame = CFrame.new(center + newRel, center)
+					end
+				end
+			end
+		end
+	end))
+end
+
 local function cleanupSpectate()
 	setSpectateUIVisible(false)
 	maid:DoCleaning()
-	if camera.CameraType == Enum.CameraType.Scriptable then
-		camera.CameraType = Enum.CameraType.Custom
-	end
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+	isSpectating = false
+end
+
+local function stopAllAnimations()
+    local player = Players.LocalPlayer
+    local character = player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+    end
 end
 
 local function onPlayerDataUpdated(player, data)
 	if player ~= localPlayer then return end
-	if data.is_spectating then
+	if data.is_spectating or not data.is_alive then
+		stopAllAnimations()
 		refreshCameraParts()
 		if #cameraParts == 0 then
 			cleanupSpectate()
@@ -121,6 +180,7 @@ local function onPlayerDataUpdated(player, data)
 		currentCameraIndex = 1
 		local ui, backBtn, fwdBtn, nameLbl = createSpectateUI()
 		setSpectateUIVisible(true)
+		isSpectating = true
 		maid:GiveTask(function()
 			if ui then ui:Destroy() end
 		end)

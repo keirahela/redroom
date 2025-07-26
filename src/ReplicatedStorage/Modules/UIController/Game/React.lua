@@ -22,6 +22,9 @@ return function(ui)
     end
     local reactPhase = false
     local finished = false
+    -- Reset UI and finished flag at the start of each round
+    if ui.TextInfo then ui.TextInfo.Text = "REACT FAST ENOUGH TO WIN!" end
+    finished = false
     if ui.Countdown then ui.Countdown.Visible = false end
     if ui.Time then ui.Time.Visible = false end -- Remove timer UI
     if ui.TextButton then ui.TextButton.Visible = false end
@@ -30,7 +33,7 @@ return function(ui)
     -- Cleanup function
     local function cleanup()
         ui.Visible = false
-        maid:DoCleaning()
+        pcall(maid.DoCleaning, maid)
         player.CameraMinZoomDistance = 0.5
         player.CameraMaxZoomDistance = 0.5
         if player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -39,15 +42,22 @@ return function(ui)
     end
     -- Show result and maybe cleanup
     local function showResultAndMaybeCleanup(result)
+        print("[React][CLIENT] showResultAndMaybeCleanup called with result:", result)
         if result == "advance" then
             if ui.TextInfo then
                 ui.TextInfo.Text = "You won!"
                 SoundManager:PlaySFX("BeepSound")
             end
-            maid:GiveTask(task.spawn(function()
+            local thread = task.spawn(function()
                 task.wait(2.5)
                 cleanup()
-            end))
+            end)
+            maid:GiveTask(function()
+                if coroutine.status(thread) ~= "dead" then
+                    pcall(task.cancel, thread)
+                end
+            end)
+            finished = true -- Only set finished after a win
         elseif result == "fail" then
             if ui.TextInfo then ui.TextInfo.Text = "Try again!" end
             if ui.TextButton then
@@ -56,7 +66,7 @@ return function(ui)
                 reactPhase = false
             end
             SoundManager:PlaySFX("Beep")
-            finished = false -- Allow clicking again
+            finished = false -- Allow clicking again after fail
         end
     end
     -- Listen for server events
@@ -103,12 +113,15 @@ return function(ui)
         end
     end))
     maid:GiveTask(ui.TextButton.MouseButton1Click:Connect(function()
+        print("[React][CLIENT] Button clicked. finished:", finished, "reactPhase:", reactPhase)
         if finished then return end
         if not reactPhase then
+            print("[React][CLIENT] Sending react_fail to server")
             client.MinigameInput.Fire("react_fail", {zone = "fail_early"})
             -- Do not set finished=true, allow retry
             return
         end
+        print("[React][CLIENT] Sending react_click to server")
         client.MinigameInput.Fire("react_click", {zone = "clicked"})
         finished = true
     end))

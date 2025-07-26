@@ -24,7 +24,7 @@ local function getAlivePlayers()
     end
 end
 
-function bombguesser.start(match)
+function bombguesser.start(match, minigame_signal)
     player_state = {}
     match_ref = match
     round_active = true
@@ -38,13 +38,21 @@ function bombguesser.start(match)
         local state = player_state[player]
         if not state or state.done then return end
         if input_type == "guess" then
-            if tonumber(input_data) == state.dud_index then
+            local guessIndex = nil
+            if type(input_data) == "table" and input_data.zone then
+                guessIndex = tonumber(tostring(input_data.zone):match("bomb(%d)"))
+            elseif type(input_data) == "number" then
+                guessIndex = input_data
+            end
+            local guessNum = tonumber(guessIndex)
+            local dudNum = tonumber(state.dud_index)
+            if guessNum and dudNum and guessNum == dudNum then
                 state.done = true
                 round_active = false
                 server.UpdateUI.Fire(player, "Game", "BombGuesserResult", {result = "advance", dud = state.dud_index})
                 if match_ref and not match_ref.last_minigame_winner then
                     match_ref.last_minigame_winner = player
-                    minigame_signal:Fire()
+                    if minigame_signal then minigame_signal:Fire() end
                 end
             else
                 server.UpdateUI.Fire(player, "Game", "BombGuesserResult", {result = "fail", dud = state.dud_index})

@@ -19,6 +19,7 @@ end
 
 return function(ui)
     local maid = Maid.new()
+    local yourRat = nil
     local function cleanup()
         ui.Visible = false
         maid:DoCleaning()
@@ -81,9 +82,9 @@ return function(ui)
                 btn.ImageTransparency = 0.5 -- Default for available rats, will be set to 0 for selected
             end
         end
-        -- If our selectedRat is no longer available, clear selection and re-enable UI
-        if selectedRat and not found then
-            print("[RatRace][CLIENT] Our selected rat is no longer available. Clearing selection.")
+        -- Only clear selection if yourRat is nil or does not match selectedRat
+        if selectedRat and (yourRat == nil or yourRat ~= selectedRat) then
+            print("[RatRace][CLIENT] Our selected rat is no longer ours. Clearing selection.")
             selectedRat = nil
             resetRatRaceUI()
         end
@@ -105,23 +106,21 @@ return function(ui)
     maid:GiveTask(client.UpdateUI.On(function(ui_type, element, value)
         if ui_type == "Game" and element == "RatRaceTakenRats" and type(value) == "table" then
             print("[RatRace][CLIENT] Received takenRats from server:", value)
-            takenRats = value
-            -- If we have no selection but one of the rats is taken by us, set selectedRat and update UI
-            if not selectedRat then
-                local player = Players.LocalPlayer
-                for i, btn in ipairs(rats) do
-                    local key = tostring(i)
-                    if takenRats[key] and btn.Active == false then
-                        selectedRat = i
-                        break
-                    end
-                end
-            end
+            takenRats = value.takenRats or value
+            yourRat = value.yourRat
+            selectedRat = yourRat
             updateRatUI()
             -- Only lock in selection if server confirms it
-            if selectedRat and not takenRats[tostring(selectedRat)] then
+            if selectedRat and (yourRat == nil or yourRat ~= selectedRat) then
                 print("[RatRace][CLIENT] Server did not confirm our selection. Clearing selectedRat.")
                 selectedRat = nil
+            end
+        elseif ui_type == "Game" and element == "RatRaceReset" then
+            -- Reset all rat positions to the beginning
+            for i, rat in ipairs(rats) do
+                if rat then
+                    rat.Position = UDim2.new(0, 0, rat.Position.Y.Scale, rat.Position.Y.Offset)
+                end
             end
         end
     end))

@@ -2,67 +2,147 @@
 local Players = game:GetService("Players")
 local server = require(game:GetService("ReplicatedStorage"):WaitForChild("network"):WaitForChild("server"))
 local match_object = require(script:WaitForChild("match_object"))
-local minigame_signal =
-	require(game:GetService("ServerScriptService"):WaitForChild("server"):WaitForChild("minigame_signal"))
+local minigame_signal = require(game:GetService("ServerScriptService"):WaitForChild("server"):WaitForChild("minigame_signal"))
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local SignalPlus = require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("SignalPlus"))
 local WinnerChosePlayer = SignalPlus()
 local Notification = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Notification"))
-
-local match_service = {}
-match_service.__index = match_service
-local singleton = nil
+local Maid = require(game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Maid"))
 
 export type MatchService = {
-	match: match_object.MatchObject,
-	player_connection: RBXScriptConnection?,
-	player_leaving_connection: RBXScriptConnection?,
-	start_timer: thread?,
-	timer_duration: number,
-
-	start_game: (self: MatchService) -> (),
-	reset: (self: MatchService) -> (),
-	destroy: (self: MatchService) -> (),
-	get_match: (self: MatchService) -> match_object.MatchObject,
-	start_timer_logic: (self: MatchService) -> (),
-	cancel_timer: (self: MatchService) -> (),
+	__index: MatchService,
+    match: any,
+    matchMaid: any?,
+    start_timer: thread?,
+    timer_duration: number,
+    player_connection: RBXScriptConnection?,
+    player_leaving_connection: RBXScriptConnection?,
+    create_new_match: (self: MatchService, with_intermission: boolean) -> (),
+    start_timer_logic: (self: MatchService) -> (),
+	new: () -> MatchService,
 }
 
+local match_service = {} :: MatchService
+match_service.__index = match_service
+
+-- Track extermination timer state
+local extermination_timer_active = false
+local extermination_timer_start = 0
+local extermination_timer_duration = 0
+
+local choosing_active = false
+local choosingTimerThread: thread? = nil
+
 function match_service.new(): MatchService
-	if singleton then
-		return singleton
-	end
-	local self = setmetatable({} :: any, match_service) :: MatchService
+    print("[DEBUG][match_service.new] called")
+    local self = {
+        match = nil,
+        matchMaid = nil,
+        start_timer = nil,
+        timer_duration = 30,
+        player_connection = nil,
+        player_leaving_connection = nil,
+    }
+    setmetatable(self, match_service)
+    self:create_new_match(false) -- No intermission on first match
+    print("[DEBUG][match_service.new] Setting up PlayerAdded connection")
+    self.player_connection = Players.PlayerAdded:Connect(function(player)
+        print("[DEBUG][PlayerAdded] Player joined:", player and player.Name or tostring(player))
+        local added = self.match:add_player(player)
+        print("[DEBUG][PlayerAdded] add_player returned:", added)
+        if added then
+            self:start_timer_logic()
+        end
+    end)
+    print("[DEBUG][match_service.new] PlayerAdded connection set up")
+    -- Add all currently present players to the match and start timer logic
+    for _, player in ipairs(Players:GetPlayers()) do
+        local added = self.match:add_player(player)
+        if added then
+            self:start_timer_logic()
+        end
+    end
+    return self :: MatchService
+end
 
-	self.match = match_object.new()
-	self.start_timer = nil
-	self.timer_duration = 30
-
-	self.player_connection = Players.PlayerAdded:Connect(function(player)
-		local added = self.match:add_player(player)
-		if added then
-			self:start_timer_logic()
-		end
-	end)
-
-	self.player_leaving_connection = Players.PlayerRemoving:Connect(function(player)
-		local removed = self.match:remove_player(player)
-		if removed then
-			self:start_timer_logic()
-		end
-	end)
-
-	for _, player in pairs(Players:GetPlayers()) do
-		local added = self.match:add_player(player)
-		if added then
-			self:start_timer_logic()
-		end
-	end
-
-	singleton = self
-	_G.matchservice = self
-	return self :: any
+function match_service:create_new_match(with_intermission: boolean)
+    if self.matchMaid then
+        self.matchMaid:DoCleaning()
+    end
+    self.matchMaid = Maid.new()
+    self.match = match_object.new()
+    -- Set all TVs to their top position instantly
+    for _, tv in ipairs(CollectionService:GetTagged("TV")) do
+        local startCFrame
+        if tv:IsA("BasePart") then
+            tv.Anchored = true
+            startCFrame = tv.CFrame
+        elseif tv:IsA("Model") then
+            startCFrame = tv:GetPivot()
+        else
+            continue
+        end
+        local startPos = startCFrame.Position
+        local targetY = tv:IsA("BasePart") and 20.095 or 30.765
+        local endCFrame = CFrame.new(startPos.X, targetY, startPos.Z) * (startCFrame - startPos)
+        if tv:IsA("BasePart") then
+            tv.CFrame = endCFrame
+        elseif tv:IsA("Model") then
+            tv:PivotTo(endCFrame)
+        end
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        self.match:add_player(player)
+    end
+    -- Teleport all players to SpawnLocation immediately
+    local spawnLocation = workspace:FindFirstChildOfClass("SpawnLocation")
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player and player.Character and spawnLocation then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and hrp:IsA("BasePart") then
+                hrp.Anchored = false
+                hrp.CFrame = spawnLocation.CFrame + Vector3.new(0, 5, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid:IsA("Humanoid") then
+                humanoid.WalkSpeed = 16
+                humanoid.JumpHeight = 7.2
+                humanoid.AutoRotate = true
+                humanoid.CameraOffset = Vector3.new(0,0,0)
+            end
+        end
+    end
+    local stateChangedConn = self.match.state_changed:Connect(function(new_state)
+        if new_state == "WAITING" then
+            self:start_timer_logic()
+        elseif new_state == "FINISHED" or new_state == "ENDING" then
+            task.defer(function()
+                self:create_new_match(true) -- Intermission after first round
+            end)
+        end
+    end)
+    self.matchMaid:GiveTask(function()
+        stateChangedConn:Disconnect()
+    end)
+    -- At the start of the intermission ("New round starts in"), fire the CancelAllAnimations remote to all clients.
+    if with_intermission then
+        server.CancelAllAnimations.FireAll()
+    end
+    if with_intermission then
+        local intermission_duration = 30
+        task.spawn(function()
+            for t = intermission_duration, 1, -1 do
+                Notification.ShowAll("New round starts in: " .. t)
+                task.wait(1)
+            end
+            Notification.CloseAll()
+            self:start_timer_logic()
+        end)
+    else
+        self:start_timer_logic()
+    end
 end
 
 -- Helper function to reset player state without LoadCharacter
@@ -87,6 +167,11 @@ end
 
 local function cleanup_all_minigames_and_players(match)
     print("[SERVER] [matchservice] cleanup_all_minigames_and_players: starting cleanup for match state:", match:get_state())
+    choosing_active = false
+    if choosingTimerThread then
+        pcall(task.cancel, choosingTimerThread)
+        choosingTimerThread = nil
+    end
     if match.minigames_handler and match.minigames_handler.game and match.minigames_handler.game.stop then
         print("[SERVER] [matchservice] Stopping current minigame")
         match.minigames_handler.game.stop()
@@ -101,32 +186,100 @@ local function cleanup_all_minigames_and_players(match)
     end
     print("[SERVER] [matchservice] Scheduling match reset and re-add in 2 seconds")
     task.delay(2, function()
-        if singleton then
-            print("[SERVER] [matchservice] Resetting match object")
-            singleton:reset()
-            for _, player in ipairs(Players:GetPlayers()) do
-				server.PlayerDataUpdated.Fire(player, player, {
-					is_alive = true,
-					is_spectating = false
-				})
-                print("[SERVER] [matchservice] Adding player to new match:", player.Name)
-                singleton.match:add_player(player)
-            end
-			
-            singleton.timer_duration = 30
-            print("[SERVER] [matchservice] Starting timer logic for new round")
-            singleton:start_timer_logic()
+        if match.minigames_handler and match.minigames_handler.switch_to_next then
+            match.minigames_handler:switch_to_next(match, match.minigame_signal)
         else
-            print("[SERVER] [matchservice] Singleton is nil, cannot reset match!")
+            warn("No minigames handler or switch_to_next function!")
         end
     end)
 end
 
-server.WinnerChosePlayer.SetCallback(function(sender, chosenUserId)
-    local match = singleton.match
-    if not match then
+local function startExterminationTimer(duration)
+	extermination_timer_active = true
+	extermination_timer_start = os.clock()
+	extermination_timer_duration = duration
+    for t = duration, 1, -1 do
+        Notification.ShowAll("Extermination in: " .. t)
+        task.wait(1)
+    end
+    Notification.CloseAll()
+	extermination_timer_active = false
+	extermination_timer_start = 0
+	extermination_timer_duration = 0
+end
+
+local function handleWinnerChoice(winner, chosenUserId, others)
+    -- Your existing logic for processing the choice
+    WinnerChosePlayer:Fire(chosenUserId)
+end
+
+local function startPlayerChoosingTimer(winner, others, duration)
+    choosing_active = true
+    local conn
+    conn = WinnerChosePlayer:Connect(function(chosenUserId)
+        if not choosing_active then return end
+        if self.match:get_state() ~= "IN_PROGRESS" then return end
+        -- Check winner is still present
+        local winnerStillAlive = false
+        for _, pdata in ipairs(self.match:get_alive_players()) do
+            if pdata.player == winner then
+                winnerStillAlive = true
+                break
+            end
+        end
+        if not winnerStillAlive then
+            choosing_active = false
+            if conn then conn:Disconnect() end
+            Notification.CloseAll()
+            for _, p in ipairs(Players:GetPlayers()) do
+                server.HideUI.Fire(p, "Game")
+            end
+            self.match:set_state("ENDING")
+            self.match:cleanup()
+            return
+        end
+        choosing_active = false
+        if conn then conn:Disconnect() end
+        handleWinnerChoice(winner, chosenUserId, others)
+    end)
+    choosingTimerThread = task.spawn(function()
+        for t = duration, 1, -1 do
+            Notification.ShowAll(winner.Name .. " is choosing player: " .. t)
+            if not choosing_active then break end
+            task.wait(1)
+        end
+        Notification.CloseAll()
+        if choosing_active then
+            choosing_active = false
+            if conn then conn:Disconnect() end
+            local validTargets = {}
+            for _, p in ipairs(others) do
+                if p.UserId ~= winner.UserId then
+                    table.insert(validTargets, p)
+                end
+            end
+            if #validTargets > 0 then
+                local randomTarget = validTargets[math.random(1, #validTargets)]
+                handleWinnerChoice(winner, randomTarget.UserId, others)
+            else
+                handleWinnerChoice(winner, 0, others)
+            end
+        end
+    end)
+end
+
+-- Remove the guarded WinnerChosePlayer:Connect block entirely
+WinnerChosePlayer:Connect(function(chosenUserId)
+    if not self.match or self.match:get_state() ~= "IN_PROGRESS" then
+        warn("[MatchService] Ignoring WinnerChosePlayer: match is not in progress.")
         return
     end
+    if not self.match.last_minigame_winner then
+        warn("[MatchService] Ignoring WinnerChosePlayer: no last_minigame_winner set.")
+        return
+    end
+    choosing_active = false
+    local match = self.match
 
     -- Only allow if last_minigame_winner is set and sender is the winner
     local winner = match.last_minigame_winner
@@ -134,9 +287,9 @@ server.WinnerChosePlayer.SetCallback(function(sender, chosenUserId)
         warn("[SECURITY] WinnerChosePlayer called but no last_minigame_winner is set.")
         return
     end
-    if typeof(sender) ~= "Instance" or not sender:IsA("Player") or sender ~= winner then
-        local senderName = (typeof(sender) == "Instance" and sender:IsA("Player") and sender.Name) or tostring(sender)
-        warn("[SECURITY] Non-winner tried to choose a player for elimination:", senderName)
+    if typeof(winner) ~= "Instance" or not winner:IsA("Player") then
+        local winnerName = (typeof(winner) == "Instance" and winner:IsA("Player") and winner.Name) or tostring(winner)
+        warn("[SECURITY] Non-winner tried to choose a player for elimination:", winnerName)
         return
     end
 
@@ -159,7 +312,7 @@ server.WinnerChosePlayer.SetCallback(function(sender, chosenUserId)
     -- Validate chosen player
     local alive_players = match:get_alive_players()
     local chosenPlayer = game:GetService("Players"):GetPlayerByUserId(chosenUserId)
-    if chosenPlayer == sender then
+    if chosenPlayer == winner then
         warn("[SECURITY] Winner tried to select themselves for elimination.")
         return
     end
@@ -189,15 +342,17 @@ server.WinnerChosePlayer.SetCallback(function(sender, chosenUserId)
 end)
 
 minigame_signal:Connect(function()
-	local service = singleton
-	if not service or not service.match then
-		warn("No match object found for minigame end event!")
-		return
-	end
-	local match = service.match
+    print("[MatchService][DEBUG] minigame_signal received. Processing minigame end...")
+    local service = match_service
+    if not service or not service.match then
+        warn("No match object found for minigame end event!")
+        return
+    end
+    local match = service.match
+    print("[MatchService][DEBUG] Current match state:", match:get_state())
 	if match:get_state() == "FINISHED" or match:get_state() == "ENDING" then
 		print("[MatchService] Not switching minigame: match is finished or ending.")
-		cleanup_all_minigames_and_players(match)
+		match:cleanup()
 		return
 	end
 	-- Lerp all TVs up for all players after each minigame
@@ -250,23 +405,13 @@ minigame_signal:Connect(function()
 		Notification.ShowAll(winner.Name .. " won the minigame, choosing player")
 		server.UpdateUI.Fire(winner, "Game", "StartWinnerChoosing", { players = others })
 		-- Replicate timer to all non-winners
-		local chooseTime = 20
-		local chose = false
-		local conn
-		conn = WinnerChosePlayer:Connect(function()
-			chose = true
-			if conn then conn:Disconnect() end
+		task.spawn(function()
+			local winner: Player? = match.last_minigame_winner
+			Notification.ShowAll((winner and winner.Name or "") .. " won the minigame, choosing player")
+			server.UpdateUI.Fire(winner, "Game", "StartWinnerChoosing", { players = others })
+			-- Replicate timer to all non-winners
+			startPlayerChoosingTimer(winner, others, 20)
 		end)
-		for t = chooseTime, 1, -1 do
-			Notification.ShowAll(winner.Name .. " is choosing player: " .. t)
-			if chose then break end
-			task.wait(1)
-		end
-		Notification.CloseAll()
-		if not chose then
-			-- Timeout: force round to continue
-			WinnerChosePlayer:Fire()
-		end
 	end
 	print("[MatchService] Waiting for winner to choose a player...")
 	WinnerChosePlayer:Wait()
@@ -274,7 +419,7 @@ minigame_signal:Connect(function()
 	-- Check match state again before switching to next minigame
 	if match:get_state() == "FINISHED" or match:get_state() == "ENDING" then
 		print("[MatchService] Not switching minigame after match end. Running cleanup.")
-		cleanup_all_minigames_and_players(match)
+		match:cleanup()
 		return
 	end
 	-- Lower all TVs before starting the next minigame
@@ -309,7 +454,7 @@ minigame_signal:Connect(function()
 	end
 	task.wait(lowerSoundDuration)
 	if match.minigames_handler and match.minigames_handler.switch_to_next then
-		match.minigames_handler:switch_to_next(match)
+		match.minigames_handler:switch_to_next(match, match.minigame_signal)
 	else
 		warn("No minigames handler or switch_to_next function!")
 	end
@@ -320,59 +465,58 @@ function match_service.winner_chose_player()
 	WinnerChosePlayer:Fire()
 end
 
-function match_service.start_timer_logic(self: any): ()
-	local player_count = self.match:get_player_count()
-
-	-- Cancel any existing timer
-	self:cancel_timer()
-
-	-- Only start timer if match is in WAITING state
-	if self.match:get_state() ~= "WAITING" then
-		return
-	end
-
-	if player_count < self.match.min_players then
-		-- not enough players, no timer needed
-		return
-	elseif player_count >= self.match.max_players then
-		-- max players reached, start with short timer
-		self.timer_duration = 10
-		print(`Max players ({self.match.max_players}) reached! Starting in {self.timer_duration} seconds...`)
-
-		server.RoundStarting.FireAll({
-			description = `Game starting in {self.timer_duration} seconds`,
-			duration = self.timer_duration,
-			title = "Game Starting",
-		})
-	else
-		-- 2+ players but not max, use longer timer
-		self.timer_duration = 30
-		print(`{player_count} players joined. Game will start in {self.timer_duration} seconds if no one else joins...`)
-
-		server.RoundStarting.FireAll({
-			description = `Game starting in {self.timer_duration} seconds`,
-			duration = self.timer_duration,
-			title = "Game Starting",
-		})
-	end
-
-	-- Start the timer
-	self.start_timer = task.spawn(function()
-		task.wait(self.timer_duration)
-
-		-- Double check we still have enough players and are in waiting state
-		if self.match:get_player_count() >= self.match.min_players and self.match:get_state() == "WAITING" then
-			print("Timer expired, starting game...")
-			self:start_game()
-		end
-
-		self.start_timer = nil
-	end)
+function match_service.start_timer_logic(self: MatchService): ()
+    local player_count = self.match:get_player_count()
+    print("[DEBUG][start_timer_logic] player_count:", player_count, "min_players:", self.match.min_players, "state:", self.match:get_state())
+    -- Cancel any existing timer
+    self:cancel_timer()
+    -- Only start timer if match is in WAITING state
+    if self.match:get_state() ~= "WAITING" then
+        print("[DEBUG][start_timer_logic] Not in WAITING state, aborting timer logic.")
+        return
+    end
+    if player_count < self.match.min_players then
+        print("[DEBUG][start_timer_logic] Not enough players, no timer started.")
+        return
+    elseif player_count >= self.match.max_players then
+        self.timer_duration = 10
+        print("[DEBUG][start_timer_logic] Max players reached! Starting in", self.timer_duration, "seconds...")
+        task.spawn(function()
+            startExterminationTimer(self.timer_duration)
+        end)
+        server.RoundStarting.FireAll({
+            description = `Game starting in {self.timer_duration} seconds`,
+            duration = self.timer_duration,
+            title = "Game Starting",
+        })
+    else
+        self.timer_duration = 5
+        print("[DEBUG][start_timer_logic] Enough players. Game will start in", self.timer_duration, "seconds if no one else joins...")
+        task.spawn(function()
+            startExterminationTimer(self.timer_duration)
+        end)
+        server.RoundStarting.FireAll({
+            description = `Game starting in {self.timer_duration} seconds`,
+            duration = self.timer_duration,
+            title = "Game Starting",
+        })
+    end
+    self.start_timer = task.spawn(function()
+        task.wait(self.timer_duration)
+        print("[DEBUG][start_timer_logic] Timer expired. player_count:", self.match:get_player_count(), "state:", self.match:get_state())
+        if self.match:get_player_count() >= self.match.min_players and self.match:get_state() == "WAITING" then
+            print("[DEBUG][start_timer_logic] Timer expired, starting game...")
+            self:start_game()
+        else
+            print("[DEBUG][start_timer_logic] Timer expired, but not enough players or not in WAITING state.")
+        end
+        self.start_timer = nil
+    end)
 end
 
 function match_service.cancel_timer(self: MatchService): ()
 	if self.start_timer then
-		coroutine.close(self.start_timer)
+		pcall(task.cancel, self.start_timer)
 		self.start_timer = nil
 		print("Timer cancelled")
 	end

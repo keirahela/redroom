@@ -280,6 +280,13 @@ if not RunService:IsRunning() then
 			FireList = noop,
 			FireSet = noop
 		}),
+		CancelAllAnimations = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 	}) :: Events
 end
 local Players = game:GetService("Players")
@@ -329,36 +336,36 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine")
-export type NotificationData = ({
-	["type"]: ("Info" | "Warning" | "Success" | "Error"),
-	["title"]: (string),
-	["message"]: (string),
-	["duration"]: (number),
-})
-export type CountdownData = ({
-	["duration"]: (number),
-	["title"]: (string),
-	["description"]: (string),
-})
 export type MinigameData = ({
 	["type"]: ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine"),
 	["duration"]: (number),
 	["instructions"]: (string),
 	["parameters"]: ((unknown)),
 })
-export type PlayerData = ({
-	["is_alive"]: (boolean),
-	["is_spectating"]: (boolean),
-})
-export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game")
-export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
 export type CrateReward = ({
 	["name"]: (string),
 	["rarity"]: (string),
 	["value"]: (number),
 })
+export type CountdownData = ({
+	["duration"]: (number),
+	["title"]: (string),
+	["description"]: (string),
+})
 export type NotificationType = ("Info" | "Warning" | "Success" | "Error")
+export type GameState = ("WAITING" | "STARTING" | "IN_PROGRESS" | "FINISHED" | "ENDING")
+export type PlayerData = ({
+	["is_alive"]: (boolean),
+	["is_spectating"]: (boolean),
+})
+export type UIType = ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby")
+export type NotificationData = ({
+	["type"]: ("Info" | "Warning" | "Success" | "Error"),
+	["title"]: (string),
+	["message"]: (string),
+	["duration"]: (number),
+})
+export type MinigameType = ("Maze" | "HigherLower" | "Blackjack" | "RatRace" | "React" | "BombGuesser" | "DragTheLine")
 
 local function SendEvents()
 	for player, outgoing in player_map do
@@ -408,13 +415,15 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 				value = "Spectator"
 			elseif bit32.btest(bool_1, 0b0000000000100000) then
 				value = "Game"
+			elseif bit32.btest(bool_1, 0b0000000001000000) then
+				value = "Lobby"
 			end
 			local len_1 = buffer.readu8(incoming_buff, read(1)) + 1
 			assert(len_1 >= 1, "value is less than 1!")
 			assert(len_1 <= 120, "value is more than 120!")
 			value2 = buffer.readstring(incoming_buff, read(len_1), len_1)
 			assert(utf8.len(value2) ~= nil, "value is not valid utf-8")
-			if bit32.btest(bool_1, 0b0000000001000000) then
+			if bit32.btest(bool_1, 0b0000000010000000) then
 				incoming_ipos = incoming_ipos + 1
 				value3 = incoming_inst[incoming_ipos]
 			else
@@ -519,7 +528,7 @@ local returns = {
 		Fire = function(Player: Player, phase: (string), duration: (number))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
 			local len_7 = #phase
 			assert(len_7 >= 1, "value is less than 1!")
 			assert(len_7 <= 40, "value is more than 40!")
@@ -537,7 +546,7 @@ local returns = {
 		FireAll = function(phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
 			local len_8 = #phase
 			assert(len_8 >= 1, "value is less than 1!")
 			assert(len_8 <= 40, "value is more than 40!")
@@ -562,7 +571,7 @@ local returns = {
 		FireExcept = function(Except: Player, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
 			local len_9 = #phase
 			assert(len_9 >= 1, "value is less than 1!")
 			assert(len_9 <= 40, "value is more than 40!")
@@ -589,7 +598,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
 			local len_10 = #phase
 			assert(len_10 >= 1, "value is less than 1!")
 			assert(len_10 <= 40, "value is more than 40!")
@@ -614,7 +623,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, phase: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
 			local len_11 = #phase
 			assert(len_11 >= 1, "value is less than 1!")
 			assert(len_11 <= 40, "value is more than 40!")
@@ -638,10 +647,10 @@ local returns = {
 		end,
 	},
 	UpdateUI = {
-		Fire = function(Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), element: (string), value: ((unknown)))
+		Fire = function(Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), element: (string), value: ((unknown)))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
 			local bool_5 = 0
 			local bool_5_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -656,6 +665,8 @@ local returns = {
 				bool_5 = bit32.bor(bool_5, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_5 = bit32.bor(bool_5, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -668,16 +679,16 @@ local returns = {
 			alloc(len_12)
 			buffer.writestring(outgoing_buff, outgoing_apos, element, len_12)
 			if value ~= nil then
-				bool_5 = bit32.bor(bool_5, 0b0000000001000000)
+				bool_5 = bit32.bor(bool_5, 0b0000000010000000)
 				table.insert(outgoing_inst, value)
 			end
 			buffer.writeu8(outgoing_buff, bool_5_pos_1, bool_5)
 			player_map[Player] = save()
 		end,
-		FireAll = function(ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), element: (string), value: ((unknown)))
+		FireAll = function(ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), element: (string), value: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
 			local bool_6 = 0
 			local bool_6_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -692,6 +703,8 @@ local returns = {
 				bool_6 = bit32.bor(bool_6, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_6 = bit32.bor(bool_6, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_6 = bit32.bor(bool_6, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -704,7 +717,7 @@ local returns = {
 			alloc(len_13)
 			buffer.writestring(outgoing_buff, outgoing_apos, element, len_13)
 			if value ~= nil then
-				bool_6 = bit32.bor(bool_6, 0b0000000001000000)
+				bool_6 = bit32.bor(bool_6, 0b0000000010000000)
 				table.insert(outgoing_inst, value)
 			end
 			buffer.writeu8(outgoing_buff, bool_6_pos_1, bool_6)
@@ -717,10 +730,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireExcept = function(Except: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), element: (string), value: ((unknown)))
+		FireExcept = function(Except: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), element: (string), value: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
 			local bool_7 = 0
 			local bool_7_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -735,6 +748,8 @@ local returns = {
 				bool_7 = bit32.bor(bool_7, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_7 = bit32.bor(bool_7, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_7 = bit32.bor(bool_7, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -747,7 +762,7 @@ local returns = {
 			alloc(len_14)
 			buffer.writestring(outgoing_buff, outgoing_apos, element, len_14)
 			if value ~= nil then
-				bool_7 = bit32.bor(bool_7, 0b0000000001000000)
+				bool_7 = bit32.bor(bool_7, 0b0000000010000000)
 				table.insert(outgoing_inst, value)
 			end
 			buffer.writeu8(outgoing_buff, bool_7_pos_1, bool_7)
@@ -762,10 +777,10 @@ local returns = {
 				end
 			end
 		end,
-		FireList = function(List: { [unknown]: Player }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), element: (string), value: ((unknown)))
+		FireList = function(List: { [unknown]: Player }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), element: (string), value: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
 			local bool_8 = 0
 			local bool_8_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -780,6 +795,8 @@ local returns = {
 				bool_8 = bit32.bor(bool_8, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_8 = bit32.bor(bool_8, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_8 = bit32.bor(bool_8, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -792,7 +809,7 @@ local returns = {
 			alloc(len_15)
 			buffer.writestring(outgoing_buff, outgoing_apos, element, len_15)
 			if value ~= nil then
-				bool_8 = bit32.bor(bool_8, 0b0000000001000000)
+				bool_8 = bit32.bor(bool_8, 0b0000000010000000)
 				table.insert(outgoing_inst, value)
 			end
 			buffer.writeu8(outgoing_buff, bool_8_pos_1, bool_8)
@@ -805,10 +822,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireSet = function(Set: { [Player]: any }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), element: (string), value: ((unknown)))
+		FireSet = function(Set: { [Player]: any }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), element: (string), value: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
 			local bool_9 = 0
 			local bool_9_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -823,6 +840,8 @@ local returns = {
 				bool_9 = bit32.bor(bool_9, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_9 = bit32.bor(bool_9, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_9 = bit32.bor(bool_9, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -835,7 +854,7 @@ local returns = {
 			alloc(len_16)
 			buffer.writestring(outgoing_buff, outgoing_apos, element, len_16)
 			if value ~= nil then
-				bool_9 = bit32.bor(bool_9, 0b0000000001000000)
+				bool_9 = bit32.bor(bool_9, 0b0000000010000000)
 				table.insert(outgoing_inst, value)
 			end
 			buffer.writeu8(outgoing_buff, bool_9_pos_1, bool_9)
@@ -850,7 +869,7 @@ local returns = {
 		end,
 	},
 	UIInteraction = {
-		SetCallback = function(Callback: (Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), action: (string), data: ((unknown))) -> ()): () -> ()
+		SetCallback = function(Callback: (Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), action: (string), data: ((unknown))) -> ()): () -> ()
 			reliable_events[2] = Callback
 			return function()
 				reliable_events[2] = nil
@@ -861,7 +880,7 @@ local returns = {
 		Fire = function(Player: Player, effect_name: (string), target: ((Instance)?), data: ((unknown)))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
 			local bool_10 = 0
 			local bool_10_pos_1 = alloc(1)
 			local len_17 = #effect_name
@@ -886,7 +905,7 @@ local returns = {
 		FireAll = function(effect_name: (string), target: ((Instance)?), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
 			local bool_11 = 0
 			local bool_11_pos_1 = alloc(1)
 			local len_18 = #effect_name
@@ -918,7 +937,7 @@ local returns = {
 		FireExcept = function(Except: Player, effect_name: (string), target: ((Instance)?), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
 			local bool_12 = 0
 			local bool_12_pos_1 = alloc(1)
 			local len_19 = #effect_name
@@ -952,7 +971,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, effect_name: (string), target: ((Instance)?), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
 			local bool_13 = 0
 			local bool_13_pos_1 = alloc(1)
 			local len_20 = #effect_name
@@ -984,7 +1003,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, effect_name: (string), target: ((Instance)?), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
 			local bool_14 = 0
 			local bool_14_pos_1 = alloc(1)
 			local len_21 = #effect_name
@@ -1018,7 +1037,7 @@ local returns = {
 		Fire = function(Player: Player, cframe: (CFrame))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 19)
 			local axis_1, angle_1 = cframe:ToAxisAngle()
 			axis_1 = axis_1 * angle_1
 			alloc(4)
@@ -1038,7 +1057,7 @@ local returns = {
 		FireAll = function(cframe: (CFrame))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 19)
 			local axis_2, angle_2 = cframe:ToAxisAngle()
 			axis_2 = axis_2 * angle_2
 			alloc(4)
@@ -1065,7 +1084,7 @@ local returns = {
 		FireExcept = function(Except: Player, cframe: (CFrame))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 19)
 			local axis_3, angle_3 = cframe:ToAxisAngle()
 			axis_3 = axis_3 * angle_3
 			alloc(4)
@@ -1094,7 +1113,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, cframe: (CFrame))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 19)
 			local axis_4, angle_4 = cframe:ToAxisAngle()
 			axis_4 = axis_4 * angle_4
 			alloc(4)
@@ -1121,7 +1140,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, cframe: (CFrame))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 19)
 			local axis_5, angle_5 = cframe:ToAxisAngle()
 			axis_5 = axis_5 * angle_5
 			alloc(4)
@@ -1158,7 +1177,7 @@ local returns = {
 		Fire = function(Player: Player, spectator: (Player), target: ((Player)?))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			local bool_15 = 0
 			local bool_15_pos_1 = alloc(1)
 			assert(spectator:IsA("Player"), "received instance is not of the Player class!")
@@ -1174,7 +1193,7 @@ local returns = {
 		FireAll = function(spectator: (Player), target: ((Player)?))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			local bool_16 = 0
 			local bool_16_pos_1 = alloc(1)
 			assert(spectator:IsA("Player"), "received instance is not of the Player class!")
@@ -1197,7 +1216,7 @@ local returns = {
 		FireExcept = function(Except: Player, spectator: (Player), target: ((Player)?))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			local bool_17 = 0
 			local bool_17_pos_1 = alloc(1)
 			assert(spectator:IsA("Player"), "received instance is not of the Player class!")
@@ -1222,7 +1241,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, spectator: (Player), target: ((Player)?))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			local bool_18 = 0
 			local bool_18_pos_1 = alloc(1)
 			assert(spectator:IsA("Player"), "received instance is not of the Player class!")
@@ -1245,7 +1264,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, spectator: (Player), target: ((Player)?))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
 			local bool_19 = 0
 			local bool_19_pos_1 = alloc(1)
 			assert(spectator:IsA("Player"), "received instance is not of the Player class!")
@@ -1267,10 +1286,10 @@ local returns = {
 		end,
 	},
 	ShowUI = {
-		Fire = function(Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), data: ((unknown)))
+		Fire = function(Player: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), data: ((unknown)))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_20 = 0
 			local bool_20_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -1285,20 +1304,22 @@ local returns = {
 				bool_20 = bit32.bor(bool_20, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_20 = bit32.bor(bool_20, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_20 = bit32.bor(bool_20, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			if data ~= nil then
-				bool_20 = bit32.bor(bool_20, 0b0000000001000000)
+				bool_20 = bit32.bor(bool_20, 0b0000000010000000)
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_20_pos_1, bool_20)
 			player_map[Player] = save()
 		end,
-		FireAll = function(ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), data: ((unknown)))
+		FireAll = function(ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_21 = 0
 			local bool_21_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -1313,11 +1334,13 @@ local returns = {
 				bool_21 = bit32.bor(bool_21, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_21 = bit32.bor(bool_21, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_21 = bit32.bor(bool_21, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			if data ~= nil then
-				bool_21 = bit32.bor(bool_21, 0b0000000001000000)
+				bool_21 = bit32.bor(bool_21, 0b0000000010000000)
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_21_pos_1, bool_21)
@@ -1330,10 +1353,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireExcept = function(Except: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), data: ((unknown)))
+		FireExcept = function(Except: Player, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_22 = 0
 			local bool_22_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -1348,11 +1371,13 @@ local returns = {
 				bool_22 = bit32.bor(bool_22, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_22 = bit32.bor(bool_22, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_22 = bit32.bor(bool_22, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			if data ~= nil then
-				bool_22 = bit32.bor(bool_22, 0b0000000001000000)
+				bool_22 = bit32.bor(bool_22, 0b0000000010000000)
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_22_pos_1, bool_22)
@@ -1367,10 +1392,10 @@ local returns = {
 				end
 			end
 		end,
-		FireList = function(List: { [unknown]: Player }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), data: ((unknown)))
+		FireList = function(List: { [unknown]: Player }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_23 = 0
 			local bool_23_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -1385,11 +1410,13 @@ local returns = {
 				bool_23 = bit32.bor(bool_23, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_23 = bit32.bor(bool_23, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_23 = bit32.bor(bool_23, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			if data ~= nil then
-				bool_23 = bit32.bor(bool_23, 0b0000000001000000)
+				bool_23 = bit32.bor(bool_23, 0b0000000010000000)
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_23_pos_1, bool_23)
@@ -1402,10 +1429,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireSet = function(Set: { [Player]: any }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"), data: ((unknown)))
+		FireSet = function(Set: { [Player]: any }, ui_type: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"), data: ((unknown)))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
 			local bool_24 = 0
 			local bool_24_pos_1 = alloc(1)
 			if ui_type == "MainMenu" then
@@ -1420,11 +1447,13 @@ local returns = {
 				bool_24 = bit32.bor(bool_24, 0b0000000000010000)
 			elseif ui_type == "Game" then
 				bool_24 = bit32.bor(bool_24, 0b0000000000100000)
+			elseif ui_type == "Lobby" then
+				bool_24 = bit32.bor(bool_24, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			if data ~= nil then
-				bool_24 = bit32.bor(bool_24, 0b0000000001000000)
+				bool_24 = bit32.bor(bool_24, 0b0000000010000000)
 				table.insert(outgoing_inst, data)
 			end
 			buffer.writeu8(outgoing_buff, bool_24_pos_1, bool_24)
@@ -1442,7 +1471,7 @@ local returns = {
 		Fire = function(Player: Player, title: (string), message: (string), buttons: ({ (string) }))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
 			local len_22 = #title
 			assert(len_22 >= 1, "value is less than 1!")
 			assert(len_22 <= 200, "value is more than 200!")
@@ -1476,7 +1505,7 @@ local returns = {
 		FireAll = function(title: (string), message: (string), buttons: ({ (string) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
 			local len_26 = #title
 			assert(len_26 >= 1, "value is less than 1!")
 			assert(len_26 <= 200, "value is more than 200!")
@@ -1517,7 +1546,7 @@ local returns = {
 		FireExcept = function(Except: Player, title: (string), message: (string), buttons: ({ (string) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
 			local len_30 = #title
 			assert(len_30 >= 1, "value is less than 1!")
 			assert(len_30 <= 200, "value is more than 200!")
@@ -1560,7 +1589,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, title: (string), message: (string), buttons: ({ (string) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
 			local len_34 = #title
 			assert(len_34 >= 1, "value is less than 1!")
 			assert(len_34 <= 200, "value is more than 200!")
@@ -1601,7 +1630,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, title: (string), message: (string), buttons: ({ (string) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 12)
 			local len_38 = #title
 			assert(len_38 >= 1, "value is less than 1!")
 			assert(len_38 <= 200, "value is more than 200!")
@@ -1649,7 +1678,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
 			local bool_25 = 0
 			local bool_25_pos_1 = alloc(1)
 			if Value["type"] == "Info" then
@@ -1694,7 +1723,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
 			local bool_26 = 0
 			local bool_26_pos_1 = alloc(1)
 			if Value["type"] == "Info" then
@@ -1746,7 +1775,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
 			local bool_27 = 0
 			local bool_27_pos_1 = alloc(1)
 			if Value["type"] == "Info" then
@@ -1800,7 +1829,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
 			local bool_28 = 0
 			local bool_28_pos_1 = alloc(1)
 			if Value["type"] == "Info" then
@@ -1852,7 +1881,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 11)
 			local bool_29 = 0
 			local bool_29_pos_1 = alloc(1)
 			if Value["type"] == "Info" then
@@ -1909,7 +1938,7 @@ local returns = {
 		Fire = function(Player: Player, transition_type: (string), duration: (number))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
 			local len_52 = #transition_type
 			assert(len_52 >= 1, "value is less than 1!")
 			assert(len_52 <= 80, "value is more than 80!")
@@ -1927,7 +1956,7 @@ local returns = {
 		FireAll = function(transition_type: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
 			local len_53 = #transition_type
 			assert(len_53 >= 1, "value is less than 1!")
 			assert(len_53 <= 80, "value is more than 80!")
@@ -1952,7 +1981,7 @@ local returns = {
 		FireExcept = function(Except: Player, transition_type: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
 			local len_54 = #transition_type
 			assert(len_54 >= 1, "value is less than 1!")
 			assert(len_54 <= 80, "value is more than 80!")
@@ -1979,7 +2008,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, transition_type: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
 			local len_55 = #transition_type
 			assert(len_55 >= 1, "value is less than 1!")
 			assert(len_55 <= 80, "value is more than 80!")
@@ -2004,7 +2033,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, transition_type: (string), duration: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 15)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 16)
 			local len_56 = #transition_type
 			assert(len_56 >= 1, "value is less than 1!")
 			assert(len_56 <= 80, "value is more than 80!")
@@ -2213,7 +2242,7 @@ local returns = {
 		Fire = function(Player: Player, winner_count: (number), coins_awarded: (number))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, winner_count)
 			alloc(4)
@@ -2223,7 +2252,7 @@ local returns = {
 		FireAll = function(winner_count: (number), coins_awarded: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, winner_count)
 			alloc(4)
@@ -2240,7 +2269,7 @@ local returns = {
 		FireExcept = function(Except: Player, winner_count: (number), coins_awarded: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, winner_count)
 			alloc(4)
@@ -2259,7 +2288,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, winner_count: (number), coins_awarded: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, winner_count)
 			alloc(4)
@@ -2276,7 +2305,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, winner_count: (number), coins_awarded: (number))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, winner_count)
 			alloc(4)
@@ -2311,7 +2340,7 @@ local returns = {
 		Fire = function(Player: Player, player: (Player), reason: (string))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_67 = #reason
@@ -2327,7 +2356,7 @@ local returns = {
 		FireAll = function(player: (Player), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_68 = #reason
@@ -2350,7 +2379,7 @@ local returns = {
 		FireExcept = function(Except: Player, player: (Player), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_69 = #reason
@@ -2375,7 +2404,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, player: (Player), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_70 = #reason
@@ -2398,7 +2427,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, player: (Player), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_71 = #reason
@@ -2426,7 +2455,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
 			local bool_30 = 0
 			local bool_30_pos_1 = alloc(1)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
@@ -2446,7 +2475,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
 			local bool_31 = 0
 			local bool_31_pos_1 = alloc(1)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
@@ -2473,7 +2502,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
 			local bool_32 = 0
 			local bool_32_pos_1 = alloc(1)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
@@ -2502,7 +2531,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
 			local bool_33 = 0
 			local bool_33_pos_1 = alloc(1)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
@@ -2529,7 +2558,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 8)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
 			local bool_34 = 0
 			local bool_34_pos_1 = alloc(1)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
@@ -2555,7 +2584,7 @@ local returns = {
 		Fire = function(Player: Player, animationId: (string))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
 			local len_72 = #animationId
 			assert(len_72 >= 10, "value is less than 10!")
 			assert(len_72 <= 80, "value is more than 80!")
@@ -2569,7 +2598,7 @@ local returns = {
 		FireAll = function(animationId: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
 			local len_73 = #animationId
 			assert(len_73 >= 10, "value is less than 10!")
 			assert(len_73 <= 80, "value is more than 80!")
@@ -2590,7 +2619,7 @@ local returns = {
 		FireExcept = function(Except: Player, animationId: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
 			local len_74 = #animationId
 			assert(len_74 >= 10, "value is less than 10!")
 			assert(len_74 <= 80, "value is more than 80!")
@@ -2613,7 +2642,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, animationId: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
 			local len_75 = #animationId
 			assert(len_75 >= 10, "value is less than 10!")
 			assert(len_75 <= 80, "value is more than 80!")
@@ -2634,7 +2663,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, animationId: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 17)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 18)
 			local len_76 = #animationId
 			assert(len_76 >= 10, "value is less than 10!")
 			assert(len_76 <= 80, "value is more than 80!")
@@ -2712,7 +2741,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_35 = 0
 			local bool_35_pos_1 = alloc(1)
 			if Value["type"] == "Maze" then
@@ -2759,7 +2788,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_36 = 0
 			local bool_36_pos_1 = alloc(1)
 			if Value["type"] == "Maze" then
@@ -2813,7 +2842,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_37 = 0
 			local bool_37_pos_1 = alloc(1)
 			if Value["type"] == "Maze" then
@@ -2869,7 +2898,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_38 = 0
 			local bool_38_pos_1 = alloc(1)
 			if Value["type"] == "Maze" then
@@ -2923,7 +2952,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_39 = 0
 			local bool_39_pos_1 = alloc(1)
 			if Value["type"] == "Maze" then
@@ -2981,10 +3010,10 @@ local returns = {
 		end,
 	},
 	HideUI = {
-		Fire = function(Player: Player, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"))
+		Fire = function(Player: Player, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
 			local bool_40 = 0
 			local bool_40_pos_1 = alloc(1)
 			if Value == "MainMenu" then
@@ -2999,16 +3028,18 @@ local returns = {
 				bool_40 = bit32.bor(bool_40, 0b0000000000010000)
 			elseif Value == "Game" then
 				bool_40 = bit32.bor(bool_40, 0b0000000000100000)
+			elseif Value == "Lobby" then
+				bool_40 = bit32.bor(bool_40, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
 			buffer.writeu8(outgoing_buff, bool_40_pos_1, bool_40)
 			player_map[Player] = save()
 		end,
-		FireAll = function(Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"))
+		FireAll = function(Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
 			local bool_41 = 0
 			local bool_41_pos_1 = alloc(1)
 			if Value == "MainMenu" then
@@ -3023,6 +3054,8 @@ local returns = {
 				bool_41 = bit32.bor(bool_41, 0b0000000000010000)
 			elseif Value == "Game" then
 				bool_41 = bit32.bor(bool_41, 0b0000000000100000)
+			elseif Value == "Lobby" then
+				bool_41 = bit32.bor(bool_41, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -3036,10 +3069,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireExcept = function(Except: Player, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"))
+		FireExcept = function(Except: Player, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
 			local bool_42 = 0
 			local bool_42_pos_1 = alloc(1)
 			if Value == "MainMenu" then
@@ -3054,6 +3087,8 @@ local returns = {
 				bool_42 = bit32.bor(bool_42, 0b0000000000010000)
 			elseif Value == "Game" then
 				bool_42 = bit32.bor(bool_42, 0b0000000000100000)
+			elseif Value == "Lobby" then
+				bool_42 = bit32.bor(bool_42, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -3069,10 +3104,10 @@ local returns = {
 				end
 			end
 		end,
-		FireList = function(List: { [unknown]: Player }, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"))
+		FireList = function(List: { [unknown]: Player }, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
 			local bool_43 = 0
 			local bool_43_pos_1 = alloc(1)
 			if Value == "MainMenu" then
@@ -3087,6 +3122,8 @@ local returns = {
 				bool_43 = bit32.bor(bool_43, 0b0000000000010000)
 			elseif Value == "Game" then
 				bool_43 = bit32.bor(bool_43, 0b0000000000100000)
+			elseif Value == "Lobby" then
+				bool_43 = bit32.bor(bool_43, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -3100,10 +3137,10 @@ local returns = {
 				player_map[player] = save()
 			end
 		end,
-		FireSet = function(Set: { [Player]: any }, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game"))
+		FireSet = function(Set: { [Player]: any }, Value: ("MainMenu" | "Shop" | "Settings" | "CrateOpening" | "Spectator" | "Game" | "Lobby"))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 6)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 7)
 			local bool_44 = 0
 			local bool_44_pos_1 = alloc(1)
 			if Value == "MainMenu" then
@@ -3118,6 +3155,8 @@ local returns = {
 				bool_44 = bit32.bor(bool_44, 0b0000000000010000)
 			elseif Value == "Game" then
 				bool_44 = bit32.bor(bool_44, 0b0000000000100000)
+			elseif Value == "Lobby" then
+				bool_44 = bit32.bor(bool_44, 0b0000000001000000)
 			else
 				error("Invalid enumerator")
 			end
@@ -3292,7 +3331,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_82 = #reward["name"]
@@ -3322,7 +3361,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_84 = #reward["name"]
@@ -3359,7 +3398,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_86 = #reward["name"]
@@ -3398,7 +3437,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_88 = #reward["name"]
@@ -3435,7 +3474,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 13)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 14)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			local len_90 = #reward["name"]
@@ -3470,7 +3509,7 @@ local returns = {
 		Fire = function(Player: Player, player: (Player), amount: (number), reason: (string))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			alloc(4)
@@ -3488,7 +3527,7 @@ local returns = {
 		FireAll = function(player: (Player), amount: (number), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			alloc(4)
@@ -3513,7 +3552,7 @@ local returns = {
 		FireExcept = function(Except: Player, player: (Player), amount: (number), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			alloc(4)
@@ -3540,7 +3579,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, player: (Player), amount: (number), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			alloc(4)
@@ -3565,7 +3604,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, player: (Player), amount: (number), reason: (string))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 9)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 10)
 			assert(player:IsA("Player"), "received instance is not of the Player class!")
 			table.insert(outgoing_inst, player)
 			alloc(4)
@@ -3578,6 +3617,68 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, len_96 - 1)
 			alloc(len_96)
 			buffer.writestring(outgoing_buff, outgoing_apos, reason, len_96)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
+	CancelAllAnimations = {
+		Fire = function(Player: Player)
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			player_map[Player] = save()
+		end,
+		FireAll = function()
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player)
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player })
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any })
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

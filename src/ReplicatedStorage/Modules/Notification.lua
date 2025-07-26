@@ -7,7 +7,6 @@ local RunService = game:GetService("RunService")
 local function showToPlayer(player, message)
     local playerGui = player:FindFirstChild("PlayerGui")
     if not playerGui then return end
-    if playerGui:FindFirstChild("CountdownUI") then return end
     local NotificationUI = ReplicatedStorage:FindFirstChild("UI") and ReplicatedStorage.UI:FindFirstChild("NotificationUI")
     if not NotificationUI then return end
     local existing = playerGui:FindFirstChild("NotificationUI")
